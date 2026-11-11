@@ -1,6 +1,6 @@
 // SportTest on the PC (Linux x86) with a fake HMI framework: CDS values in, what the plugin sends out.
-// Usage: sh tests/host_test.sh
-#include "../plugins/SportTest/sport_test.cpp"
+// Usage: sh apps/SportTest/test/host.sh
+#include "../sport_test.cpp"
 extern "C" int printf(const char*, ...);
 extern "C" void bsCrea(void* self, const char* s) __asm__("_ZN3bmw11BasicStringIcEC1EPKc");
 extern "C" void bsCrea(void* self, const char* s) { *(const char**)self = s; }

@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pluginApps>
+  <pluginApp applicationType="Custom" applicationWeight="200" entryButtonFocusID="32759" insertStateID="50" text="App da USB">
+    <comment>App da USB t0 (nbt-evo-apps): packages of the USB stick - t0 = diagnosis only, nothing is installed</comment>
+    <entryButton action="5" id="1" model="3" imageModel="4">
+      <properties/>
+    </entryButton>
+    <actions>
+      <hmiAction id="5" target="100"/>
+      <hmiAction id="6" target="110"/>
+      <hmiAction id="7" target="120"/>
+      <hmiAction id="8" target="130"/>
+      <hmiAction id="9" target="140"/>
+      <hmiAction id="10" target="145"/>
+      <raAction id="20"/>
+      <raAction id="21"/>
+      <raAction id="22"/>
+      <raAction id="23"/>
+      <raAction id="24"/>
+      <raAction id="25"/>
+      <raAction id="26"/>
+      <raAction id="30"/>
+      <raAction id="31"/>
+      <raAction id="32"/>
+      <raAction id="33"/>
+      <raAction id="34"/>
+      <raAction id="35"/>
+      <raAction id="36"/>
+      <raAction id="40"/>
+      <raAction id="50"/>
+      <raAction id="51"/>
+      <raAction id="52"/>
+      <raAction id="53"/>
+      <raAction id="54"/>
+      <raAction id="59"/>
+      <raAction id="60"/>
+      <raAction id="61"/>
+      <raAction id="62"/>
+      <raAction id="63"/>
+      <raAction id="66"/>
+      <raAction id="67"/>
+    </actions>
+    <models>
+      <textIdModel id="3" textId="1">
+        <synonyms/>
+      </textIdModel>
+      <imageIdModel id="4" imageId="64300"/>
+      <raDataModel id="41"/>
+      <raImageModel id="141"/>
+      <raDataModel id="42"/>
+      <raImageModel id="142"/>
+      <raDataModel id="43"/>
+      <raImageModel id="143"/>
+      <raDataModel id="44"/>
+      <raImageModel id="144"/>
+      <raDataModel id="45"/>
+      <raImageModel id="145"/>
+      <raDataModel id="46"/>
+      <raImageModel id="146"/>
+      <raDataModel id="47"/>
+      <raImageModel id="147"/>
+      <raDataModel id="51"/>
+      <raImageModel id="151"/>
+      <raDataModel id="52"/>
+      <raImageModel id="152"/>
+      <raDataModel id="53"/>
+      <raImageModel id="153"/>
+      <raDataModel id="54"/>
+      <raImageModel id="154"/>
+      <raDataModel id="55"/>
+      <raImageModel id="155"/>
+      <raDataModel id="56"/>
+      <raImageModel id="156"/>
+      <raDataModel id="57"/>
+      <raImageModel id="157"/>
+      <raDataModel id="61"/>
+      <raImageModel id="161"/>
+      <raDataModel id="62"/>
+      <raImageModel id="162"/>
+      <raDataModel id="63"/>
+      <raImageModel id="163"/>
+      <raDataModel id="64"/>
+      <raImageModel id="164"/>
+      <raDataModel id="65"/>
+      <raImageModel id="165"/>
+      <raDataModel id="66"/>
+      <raImageModel id="166"/>
+      <raDataModel id="67"/>
+      <raImageModel id="167"/>
+      <raDataModel id="71"/>
+      <raImageModel id="171"/>
+      <raDataModel id="72"/>
+      <raImageModel id="172"/>
+      <raDataModel id="73"/>
+      <raImageModel id="173"/>
+      <raDataModel id="74"/>
+      <raImageModel id="174"/>
+      <raDataModel id="81"/>
+      <raImageModel id="181"/>
+      <raDataModel id="82"/>
+      <raImageModel id="182"/>
+      <raDataModel id="83"/>
+      <raImageModel id="183"/>
+      <raDataModel id="84"/>
+      <raImageModel id="184"/>
+      <raDataModel id="85"/>
+      <raImageModel id="185"/>
+      <raDataModel id="91"/>
+      <raImageModel id="191"/>
+      <raDataModel id="92"/>
+      <raImageModel id="192"/>
+    </models>
+    <events/>
+    <hmiStates>
+      <hmiState id="100" text="App da USB" textModel="3">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="7" selectAction="20" id="200" model="41" imageModel="141" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="74"/>
+            </properties>
+          </button>
+          <button action="9" selectAction="21" id="201" model="42" imageModel="142" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="122"/>
+            </properties>
+          </button>
+          <button action="6" selectAction="22" id="202" model="43" imageModel="143" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="170"/>
+            </properties>
+          </button>
+          <button action="6" selectAction="23" id="203" model="44" imageModel="144" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="218"/>
+            </properties>
+          </button>
+          <button action="6" selectAction="24" id="204" model="45" imageModel="145" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="266"/>
+            </properties>
+          </button>
+          <button action="6" selectAction="25" id="205" model="46" imageModel="146" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="314"/>
+            </properties>
+          </button>
+          <button action="6" selectAction="26" id="206" model="47" imageModel="147" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="362"/>
+            </properties>
+          </button>
+        </components>
+      </hmiState>
+      <hmiState id="110" parentId="100" text="Pacchetto" textModel="3">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="59" selectAction="30" id="207" model="51" imageModel="151" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="74"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="31" id="208" model="52" imageModel="152" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="122"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="32" id="209" model="53" imageModel="153" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="170"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="33" id="210" model="54" imageModel="154" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="218"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="34" id="211" model="55" imageModel="155" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="266"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="35" id="212" model="56" imageModel="156" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="314"/>
+            </properties>
+          </button>
+          <button action="8" selectAction="36" id="213" model="57" imageModel="157" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="362"/>
+            </properties>
+          </button>
+        </components>
+      </hmiState>
+      <hmiState id="120" parentId="100" text="Diagnosi" textModel="3">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="59" selectAction="40" id="214" model="61" imageModel="161" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="74"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="40" id="215" model="62" imageModel="162" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="122"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="40" id="216" model="63" imageModel="163" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="170"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="40" id="217" model="64" imageModel="164" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="218"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="40" id="218" model="65" imageModel="165" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="266"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="40" id="219" model="66" imageModel="166" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="314"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="40" id="220" model="67" imageModel="167" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="362"/>
+            </properties>
+          </button>
+        </components>
+      </hmiState>
+      <hmiState id="130" parentId="100" text="Installazione" textModel="3">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="59" selectAction="60" id="221" model="71" imageModel="171" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="74"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="61" id="222" model="72" imageModel="172" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="122"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="62" id="223" model="73" imageModel="173" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="170"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="63" id="224" model="74" imageModel="174" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="218"/>
+            </properties>
+          </button>
+        </components>
+      </hmiState>
+      <hmiState id="140" parentId="100" text="Auto e telefono" textModel="3">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="10" selectAction="50" id="225" model="81" imageModel="181" text="Auto: MINI">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="74"/>
+            </properties>
+          </button>
+          <button action="10" selectAction="51" id="226" model="82" imageModel="182" text="Auto: BMW">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="122"/>
+            </properties>
+          </button>
+          <button action="10" selectAction="52" id="227" model="83" imageModel="183" text="Auto: Toyota Supra">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="170"/>
+            </properties>
+          </button>
+          <button action="10" selectAction="53" id="228" model="84" imageModel="184" text="iDrive Plus, app del telefono: NBT Plus">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="218"/>
+            </properties>
+          </button>
+          <button action="10" selectAction="54" id="229" model="85" imageModel="185" text="iDrive Plus, app del telefono: MINI / BMW / Supra Plus">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="266"/>
+            </properties>
+          </button>
+        </components>
+      </hmiState>
+      <hmiState id="145" parentId="100" text="Auto e telefono" textModel="3">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="59" selectAction="66" id="230" model="91" imageModel="191" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="74"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="67" id="231" model="92" imageModel="192" text=" ">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="122"/>
+            </properties>
+          </button>
+        </components>
+      </hmiState>
+    </hmiStates>
+  </pluginApp>
+</pluginApps>

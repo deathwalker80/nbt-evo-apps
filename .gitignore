@@ -4,13 +4,25 @@ out/
 build/link/libAppFramework.A.so
 build/link/libCoreFramework.A.so
 # built files: they go in the Releases
-usb/nbt-evo-apps/*/lib*.so
+usb/nbt-evo-apps/pacchetti/*/lib*.so
 # logs from the car
 *.log
-tests/out/
-tools/__pycache__/
+apps/*/test/out/
+__pycache__/
 # your own icons: never in the repository
-tools/icone_mie/
+apps/*/icone_mie/
 # built by tools/make_minisport.py (pictures): they go in the Releases
-usb/nbt-evo-apps/MiniSport/bg_*.png
-usb/nbt-evo-apps/MiniSport/MiniSport_ALL_Images.zip
+usb/nbt-evo-apps/pacchetti/MiniSport/bg_*.png
+usb/nbt-evo-apps/pacchetti/MiniSport/MiniSport_ALL_Images.zip
+# iDrive Plus plugins imported by tools/importa_idrive_plus.py (built files of the idrive-plus release)
+usb/nbt-evo-apps/pacchetti/Meteo/
+usb/nbt-evo-apps/pacchetti/Notizie/
+usb/nbt-evo-apps/pacchetti/Locali/
+usb/nbt-evo-apps/pacchetti/Carburanti/
+usb/nbt-evo-apps/pacchetti/Traffico/
+usb/nbt-evo-apps/pacchetti/Auto/
+# made by tools/pacchetti.py (package.txt comes from apps/<Name>/package.txt)
+usb/nbt-evo-apps/pacchetti/*/files.sum
+usb/nbt-evo-apps/pacchetti/*/package.txt
+# log of pkg.sh
+usb/nbt-evo-apps/pkg.log

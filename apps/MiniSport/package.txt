@@ -1,0 +1,9 @@
+name=MiniSport
+title=MINI Sport
+version=s1
+group=nbt-evo-apps
+brands=mini
+dest=plugin
+replaces=SportTest
+reset=MiniSport.avvii
+disable_file=/opt/aa/minisport.disable

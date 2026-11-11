@@ -9,3 +9,4 @@ int access(const char* p,int m){return 0;} int unlink(const char* p){return 0;}
 void* opendir(const char* p){return 0;} void* readdir(void* d){return 0;} int closedir(void* d){return 0;}
 long time(long* t){return 0;} void* localtime_r(const long* t,void* r){return 0;} int clock_gettime(int c,void* t){return 0;}
 void* dlsym(void* h,const char* s){return 0;} int getpid(void){return 0;}
+int system(const char* c){return 0;} int getuid(void){return 0;} int geteuid(void){return 0;}

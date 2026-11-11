@@ -1,8 +1,8 @@
 // MINI Sport on the PC (Linux x86) with a fake HMI framework: car values in, and what the plugin sends out is kept
 // as the state of the screen (picture of every model, position of every component). At the chosen moments the
-// state is written to tests/out/<name>.txt; tools/preview_minisport.py draws it as the HMI would.
-// Usage: sh tests/host_minisport.sh
-#include "../plugins/MiniSport/mini_sport.cpp"
+// state is written to test/out/<name>.txt; preview.py draws it as the HMI would.
+// Usage: sh apps/MiniSport/test/host.sh
+#include "../mini_sport.cpp"
 extern "C" int printf(const char*, ...);
 extern "C" void bsCrea(void* self, const char* s) __asm__("_ZN3bmw11BasicStringIcEC1EPKc");
 extern "C" void bsCrea(void* self, const char* s) { *(const char**)self = s; }
@@ -41,7 +41,7 @@ u32 g_idDi[kMaxId];              // model -> picture id of the zip (0 = none)
 u32 g_imgDi[kMaxId];             // model -> number of the picture file sent (0 = none)
 int g_x[kMaxId], g_y[kMaxId];    // component -> position set (-1000000 = as in the XML)
 u32 g_nImg = 0, g_nId = 0, g_nProp = 0, g_nTesti = 0;
-const char* g_dirOut = "tests/out";
+const char* g_dirOut = "test/out";
 
 void PluginApp::updateModel(u32, const char*) { ++g_nTesti; }
 void PluginApp::updateModel(u32 id, const Image& im) {

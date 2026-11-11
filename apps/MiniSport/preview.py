@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Draws the screens of the host test (tests/host_minisport.sh) as the HMI would: for every <name>.txt of the test
+Draws the screens of the host test (apps/MiniSport/test/host.sh) as the HMI would: for every <name>.txt of the test
 (state shown, theme, picture sent to each model, picture id of the zip of each model, components moved) the
 components of that state of MiniSport.xml are drawn in their order over an approximate MINI background
 (MID blue / SPORT black: drawn here, no picture of the head unit).
-Usage: python3 tools/preview_minisport.py tests/out     -> tests/out/<name>.png and tests/out/all.png
+Usage: python3 apps/MiniSport/preview.py <folder>     -> <folder>/<name>.png and <folder>/all.png
 """
 import glob
 import io
@@ -17,7 +17,7 @@ import numpy as np
 from PIL import Image
 
 QUI = os.path.dirname(os.path.abspath(__file__))
-PKG = os.path.join(QUI, "..", "usb", "nbt-evo-apps", "MiniSport")
+PKG = os.path.join(QUI, "..", "..", "usb", "nbt-evo-apps", "pacchetti", "MiniSport")
 W, H = 1280, 480
 
 
@@ -110,4 +110,4 @@ def main(cartella):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "tests/out")
+    main(sys.argv[1] if len(sys.argv) > 1 else os.path.join(QUI, "test", "out"))

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
 Builds what SportTest needs on the USB stick: SportTest.xml and the pictures (background, the two PNG samples,
-rev bar, G-meter dot, LED, digits). The geometry is the same as plugins/SportTest/sport_test.cpp.
-Usage: python3 tools/make_sporttest.py   (writes usb/nbt-evo-apps/SportTest/)
+rev bar, G-meter dot, LED, digits). The geometry is the same as apps/SportTest/sport_test.cpp.
+Usage: python3 apps/SportTest/make.py   (writes usb/nbt-evo-apps/pacchetti/SportTest/)
 Needs Pillow and the Inter font (fonts-inter on Ubuntu).
 """
 import os
 from PIL import Image, ImageDraw, ImageFont
 
 QUI = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(QUI, "..", "usb", "nbt-evo-apps", "SportTest")
+OUT = os.path.join(QUI, "..", "..", "usb", "nbt-evo-apps", "pacchetti", "SportTest")
 FONT = "/usr/share/fonts/opentype/inter/Inter-{}.otf"
 
 W, H = 1280, 480

@@ -1,0 +1,8 @@
+name=AppUsb
+title=App da USB
+version=t0
+group=nbt-evo-apps
+brands=all
+dest=plugin
+reset=AppUsb.avvii
+disable_file=/opt/aa/appusb.disable

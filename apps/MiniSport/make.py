@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 Builds MINI Sport for the USB stick and the layout shared with the C++ plugin:
-  usb/nbt-evo-apps/MiniSport/  MiniSport.xml, .manifest, _ALL_Texts.zip, _ALL_Images.zip (small moving pictures,
+  usb/nbt-evo-apps/pacchetti/MiniSport/  MiniSport.xml, .manifest, _ALL_Texts.zip, _ALL_Images.zip (small moving pictures,
                                switched by id), page backgrounds bg_<page>_<theme>.png (sent as pictures, rarely)
-  plugins/MiniSport/layout.h   ids of components, models and pictures, positions
+  apps/MiniSport/layout.h   ids of components, models and pictures, positions
 What the car showed in SportTest t1 decides how things move:
   - moving a picture (setProperty x/y): works (G-meter dot)       -> G dot, centring of numbers
   - switching a picture of the zip by id (ImageID): works          -> LEDs, segments, digits, bars, labels
   - changing the width of a picture (setProperty 9): does NOT work -> bars are pictures in 21 steps
-Usage: python3 tools/make_minisport.py      (Pillow, numpy, Inter font; ~1-3 minutes)
+Usage: python3 apps/MiniSport/make.py      (Pillow, numpy, Inter font; ~1-3 minutes)
 """
 import io
 import math
@@ -22,9 +22,10 @@ sys.path.insert(0, QUI)
 import minisport_gfx as g                      # noqa: E402
 
 NOME = "MiniSport"
-VERSIONE = "s1"
-OUT = os.path.join(QUI, "..", "usb", "nbt-evo-apps", NOME)
-HEADER = os.path.join(QUI, "..", "plugins", NOME, "layout.h")
+VERSIONE = dict(r.rstrip("\n").split("=", 1) for r in open(os.path.join(QUI, "package.txt"), encoding="utf-8")
+                if "=" in r)["version"]                # the version is written only in package.txt
+OUT = os.path.join(QUI, "..", "..", "usb", "nbt-evo-apps", "pacchetti", NOME)
+HEADER = os.path.join(QUI, "layout.h")
 TEMI = ("mid", "sport")
 ID_ICONA = 64200
 ID_PRIMO = 64201                               # 64201..65499: pictures of the zip
@@ -339,7 +340,7 @@ def sfondo_motore(tema):
 POS_BATT, POS_STERZO = 160, 480
 
 
-# icons: tools/icone_mie/ if present (your own, never in the repository), else tools/icone/
+# icons: apps/MiniSport/icone_mie/ if present (your own, never in the repository), else apps/MiniSport/icone/
 ICONE = os.path.join(QUI, "icone_mie") if os.path.isdir(os.path.join(QUI, "icone_mie")) else os.path.join(QUI, "icone")
 ICONE_MENU = {"giri": "giri", "g": "gmeter", "crono": "crono", "motore": "motore"}   # <icons folder>/<name>.png
 LATO_ICONA_MENU = 160

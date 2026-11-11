@@ -1,0 +1,8 @@
+name=SportTest
+title=Prova sport (test)
+version=t1
+group=nbt-evo-apps
+brands=all
+dest=plugin
+reset=SportTest.avvii SportTest.fase
+disable_file=/opt/aa/sporttest.disable
