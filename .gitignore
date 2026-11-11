@@ -7,3 +7,5 @@ build/link/libCoreFramework.A.so
 usb/nbt-evo-apps/*/lib*.so
 # logs from the car
 *.log
+tests/out/
+tools/__pycache__/

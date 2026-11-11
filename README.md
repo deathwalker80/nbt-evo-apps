@@ -9,17 +9,25 @@ gauges** (temperatures, warm-up, torque, pedals).
 
 ## Status
 
-Test stage. `SportTest` is a test plugin, not an app: one session in the car answers what the real apps need.
+**MINI Sport s1** (first version, not yet tried in a car): a menu with four pages chosen with the knob.
 
-| Question | How SportTest checks it |
+| Page | What it shows |
 |---|---|
-| How often does the car data arrive? | CDS events per second for 16 properties (revs, speed, accelerations, gear, torque, pedals, steering, temperatures...), raw values in the log |
-| How fast can small pictures be swapped? | rev digits, pictures kept in memory and sent with `updateModel` |
-| Can parts be shown, hidden, resized and moved without new pictures? | `setProperty`: shift LEDs (visibility), rev bar (width), G-meter dot (position) |
-| Can the plugin's own zip pictures be switched by id? | `updateModel` with an `ImageID` from `SportTest_ALL_Images.zip` |
-| Does the HMI show 256-colour PNG with transparency? | the two samples, side by side |
+| Giri e cambiata | rev ring, shift light (10 LEDs, blinking at the shift point), gear, oil and water temperature, accelerator pedal, torque |
+| G-meter | dot with a trail, g now, maxima (left, right, push, braking), the last minute |
+| Cronometri | 0-100 and 0-50 km/h from a stop, 80-120, braking 100-0, best values |
+| Strumenti motore | oil, water, accelerator pedal and torque dials, battery, steering angle, clutch |
 
-Not tested in a car yet.
+The look follows the MINI ID6 screens; blue accents in MID / GREEN, red in SPORT (from the car's driving mode).
+
+What the test plugin `SportTest` (t1) showed in the car, and how MINI Sport uses it:
+
+| | In the car | Used for |
+|---|---|---|
+| Pictures of the plugin's zip switched by id (`ImageID`) | works | every LED, segment, digit, bar and label |
+| Moving a picture (`setProperty` x / y) | works | G-meter dot, centring of numbers |
+| Showing / hiding a picture, changing its width (`setProperty` 3 / 9) | nothing happened | not used |
+| Car data (CDS) | revs ~9/s, accelerations ~13/s, pedals ~14/s, torque ~6/s | |
 
 ## Install
 
@@ -39,17 +47,16 @@ Remove: `sh /mnt/umass*/nbt-evo-apps/remove.sh` (after the `mount` line), then r
 ## Safety
 
 - Read only: the apps read the car data, they send nothing to the car.
-- `/opt/aa/sporttest.disable` switches SportTest off; after 3 starts that do not reach 30 s it stays off on its own.
-- Every new kind of HMI call is behind a stage marker in `/dev/shmem`: if the HMI restarts during a stage, that kind
-  of call stays off until the head unit is switched off.
+- `/opt/aa/minisport.disable` switches MINI Sport off; after 3 starts that do not reach 30 s it stays off on its own.
+- Only the HMI calls that SportTest already used in the car.
 - Use the apps parked or on a closed track.
 
 ## Build
 
 ```sh
-python3 tools/make_sporttest.py   # XML, manifest, zips and pictures into usb/nbt-evo-apps/SportTest/
-sh build/build.sh                 # libSportTest.so (clang + ld.lld, no QNX SDK)
-sh tests/host_test.sh             # the plugin logic on the PC with a fake framework (root: it uses /opt/hmi and /dev/shmem)
+python3 tools/make_minisport.py   # pictures, zips, XML into usb/nbt-evo-apps/MiniSport/ + plugins/MiniSport/layout.h (a few minutes)
+sh build/build.sh                 # libSportTest.so, libMiniSport.so (clang + ld.lld, no QNX SDK)
+sh tests/host_minisport.sh        # MINI Sport on the PC with a fake framework, pages drawn into tests/out/ (root: /opt/hmi, /dev/shmem)
 ```
 
 `build/build.sh` needs `libAppFramework.A.so` and `libCoreFramework.A.so` from **your** head unit in `build/link/`

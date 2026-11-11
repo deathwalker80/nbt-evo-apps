@@ -14,7 +14,7 @@ done
 mkdir -p out
 ARM="--target=armv7a-unknown-linux-gnueabi -mfloat-abi=soft -marm -O2 -fPIC -ffreestanding -fno-builtin"
 clang $ARM -nostdlib -shared -fuse-ld=lld -Wl,-soname,libc.so.3 -o out/libc.so.3 $L/libc_stub.c
-for N in SportTest; do
+for N in SportTest MiniSport; do
   S=$(ls plugins/$N/*.cpp)
   clang++ $ARM -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-stack-protector -fvisibility=hidden \
     -Wall -Wno-unused-function -c $S -o out/$N.o

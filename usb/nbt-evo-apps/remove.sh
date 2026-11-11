@@ -1,10 +1,10 @@
 #!/bin/sh
 # nbt-evo-apps - removes the in-car apps (moved to /opt/aa/plugins_off, recoverable).
-# Switch SportTest off without removing it:  echo 1 > /opt/aa/sporttest.disable   (+ reboot)
+# Switch MINI Sport off without removing it:  echo 1 > /opt/aa/minisport.disable   (+ reboot)
 # Run it INSIDE the omap shell (after mount -o remount rw /net/hu-omap/fs/sda0 and on -f /net/hu-omap/ /bin/sh):
 #   sh /mnt/umass*/nbt-evo-apps/remove.sh
 
-APPS="SportTest"
+APPS="MiniSport SportTest"
 P=/opt/hmi/ID5/data/ro/Plugins
 OFF=/opt/aa/plugins_off
 mkdir -p "$OFF"
