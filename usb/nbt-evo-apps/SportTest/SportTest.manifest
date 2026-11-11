@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<plugin>
+	<name>SportTest</name>
+	<type>App</type>
+	<file>{pluginDir}/SportTest</file>
+	<config>
+		<autoStart>yes</autoStart>
+		<dependencies>
+			<pluginAppConnector>
+				<type>Etch</type>
+				<id>217</id>
+				<asyncCallbacks>yes</asyncCallbacks>
+			</pluginAppConnector>
+		</dependencies>
+		<parameters>
+			<DescFile>{pluginDir}/SportTest.xml</DescFile>
+			<TextDBFile>{pluginDir}/SportTest_ALL_Texts.zip</TextDBFile>
+			<ImageDBFile>{pluginDir}/SportTest_ALL_Images.zip</ImageDBFile>
+		</parameters>
+	</config>
+</plugin>

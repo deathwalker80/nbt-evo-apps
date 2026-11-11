@@ -1,0 +1,9 @@
+# build
+out/
+# HMI libraries copied from the head unit: not redistributable
+build/link/libAppFramework.A.so
+build/link/libCoreFramework.A.so
+# built files: they go in the Releases
+usb/nbt-evo-apps/*/lib*.so
+# logs from the car
+*.log
