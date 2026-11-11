@@ -28,6 +28,7 @@ INSTALL (omap shell, the whole nbt-evo-apps folder in the root of the stick)
   pkg.sh remove NAME          moved to /opt/aa/plugins_off (recoverable)
   pkg.sh restore NAME         back to the version before the last install (one is kept)
   Log of pkg.sh: nbt-evo-apps/pkg.log on the stick.
+  sh /mnt/umass*/nbt-evo-apps/verifica.sh   reads only: can a plugin install by itself? report: nbt-evo-apps/verifica.log
 
 MINI SPORT - CHECK PARKED, ENGINE OFF
   touch /dev/shmem/MiniSport.demo      demo values: everything moves (within 5 s)
