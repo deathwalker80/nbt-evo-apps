@@ -339,42 +339,10 @@ def sfondo_motore(tema):
 POS_BATT, POS_STERZO = 160, 480
 
 
-def icona_menu(dst, cx, cy, tipo, tema, scelto):
-    T = g.TEMI[tema]
-    base = g.SCURO if scelto else g.BIANCO
-    if tipo == "giri":
-        for k, f in enumerate(g.segmenti_arco(cx, cy, 30, 42, 220, -40, 12, 6)):
-            col = T["rosso"] if k > 8 else (T["acc"] if k > 5 else ((60, 90, 100) if scelto else (220, 245, 255)))
-            if k < 10:
-                g.led_acceso(dst, f, col, 3 if scelto else 4)
-            else:
-                g.led_spento(dst, f)
-        m = g.maschera(lambda d: d.text(g.P(cx, cy + 2), "3", font=g.F(30), fill=255, anchor="mm"))
-        g.sopra(dst, g.colore(base, m))
-    elif tipo == "g":
-        rr = g.np.hypot(g.XX - cx, g.YY - cy)
-        for k in (20, 40):
-            g.sopra(dst, g.colore(base, g.liscio(g.np.abs(rr - k) - 1.1) * 0.85))
-        lay = g.colore(T["acc"], g.liscio(g.d_cerchio(cx + 16, cy + 9, 8)))
-        g.sopra(dst, g.bagliore(lay, 5, 1.2))
-        g.sopra(dst, lay)
-    elif tipo == "crono":
-        rr = g.np.hypot(g.XX - cx, g.YY - cy - 4)
-        g.sopra(dst, g.colore(base, g.liscio(g.np.abs(rr - 34) - 2.2)))
-        g.sopra(dst, g.colore(base, g.liscio(g.d_rrect(cx - 7, cy - 44, cx + 7, cy - 35, 3))))
-        g.linea(dst, (cx, cy + 4), (cx + 18, cy - 16), 5, T["acc"])
-        g.sopra(dst, g.colore(base, g.liscio(g.d_cerchio(cx, cy + 4, 5))))
-    else:
-        for k, f in enumerate(g.segmenti_arco(cx, cy + 6, 28, 38, 200, -20, 9, 6)):
-            if k < 6:
-                g.led_acceso(dst, f, g.VERDE, 3)
-            else:
-                g.led_spento(dst, f)
-        a = math.radians(70)
-        g.linea(dst, (cx, cy + 6), (cx + 26 * math.cos(a), cy + 6 - 26 * math.sin(a)), 4, base)
-        g.sopra(dst, g.colore(base, g.liscio(g.d_cerchio(cx, cy + 6, 5))))
-
-
+# icons: tools/icone_mie/ if present (your own, never in the repository), else tools/icone/
+ICONE = os.path.join(QUI, "icone_mie") if os.path.isdir(os.path.join(QUI, "icone_mie")) else os.path.join(QUI, "icone")
+ICONE_MENU = {"giri": "giri", "g": "gmeter", "crono": "crono", "motore": "motore"}   # <icons folder>/<name>.png
+LATO_ICONA_MENU = 160
 VOCI_MENU = [("giri", "Giri e cambiata", "shift light"), ("g", "G-meter", "accelerazioni"),
              ("crono", "Cronometri", "0-100 e frenata"), ("motore", "Motore", "temperature e coppia")]
 
@@ -385,14 +353,12 @@ def sfondo_menu(tema, scelta):
     g.testata(dst, "MINI Sport", tema)
     for i, (ic, nome, sotto) in enumerate(VOCI_MENU):
         x = MENU_X0 + i * MENU_W
-        cx, cy = x + MENU_W / 2, 186
+        cx, cy = x + MENU_W / 2, 180
         scelto = i == scelta
         if scelto:
             g.colonna_scelta(dst, x + 34, x + MENU_W - 34)
-            g.disco_chiaro(dst, cx, cy, 70, tema, anello=False)
-        else:
-            g.lente_nativa(dst, cx, cy, 76, interno=0.0, ombra_lunga=False)
-        icona_menu(dst, cx, cy, ic, tema, scelto)
+        g.immagine(dst, os.path.join(ICONE, f"{ICONE_MENU[ic]}.png"), cx, cy, LATO_ICONA_MENU,
+                   tinta=T["acc"] if tema == "mid" else None)          # icons drawn red: blue in MID/GREEN
         g.testo(dst, (cx, 300), nome.upper(), 19, g.BIANCO, 1.0, "Medium", "mm", track=0.8)
         g.testo(dst, (cx, 334), sotto, 19, T["acc2"] if scelto else g.BIANCO, 1.0 if scelto else 0.80, "Regular", "mm")
         g.sopra(dst, g.colore(g.BIANCO, g.liscio(g.d_rrect(cx - 22, 367, cx + 22, 369, 1)) * 0.85))
@@ -676,13 +642,11 @@ def definisci_una_volta():
 
 
 def icona():
-    from PIL import Image, ImageDraw
-    im = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.arc((4, 8, 44, 48), 200, 340, fill=(255, 255, 255, 255), width=5)
-    d.line((24, 30, 36, 16), fill=(255, 255, 255, 255), width=4)
-    d.ellipse((20, 26, 28, 34), fill=(255, 255, 255, 255))
-    return _png(im)
+    """entry of the MINI Connected list: 63 x 54 like the iDrive Plus icons, from app.png of the icons folder"""
+    g.finestra(0, 0, 63, 54)
+    lay = g.vuoto()
+    g.immagine(lay, os.path.join(ICONE, "app.png"), 31.5, 27, 54, tinta=g.TEMI["sport"]["acc"], da="ciano")   # details red
+    return _png(g.a_pil(lay))
 
 
 # ---- XML, manifest, texts, header --------------------------------------------------------------------------------

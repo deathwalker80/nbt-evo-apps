@@ -123,6 +123,53 @@ def poligono(pts, col, alfa=1.0):
     return colore(col, m * alfa)
 
 
+def ricolora(im, col, da="rosso"):
+    """the saturated reds (da="rosso") or cyans (da="ciano") of a picture take the hue of col, lightness and shading
+    kept: the icons follow the theme"""
+    a = np.asarray(im.convert("RGBA"), np.float32) / 255
+    rgb = a[..., :3]
+    mx, mn = rgb.max(-1), rgb.min(-1)
+    sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0)
+    r, gg, bb = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    if da == "rosso":
+        quanto = np.clip((r - np.maximum(gg, bb)) / np.maximum(mx - mn, 1e-6), 0, 1) * (r >= mx - 1e-6)
+    else:
+        quanto = np.clip((np.minimum(gg, bb) - r) / np.maximum(mx - mn, 1e-6), 0, 1)
+    peso = quanto * np.clip((sat - 0.35) / 0.25, 0, 1) * np.clip((mx - 0.15) / 0.15, 0, 1)
+    c = np.asarray(col, np.float32) / 255
+    c = c / max(c.max(), 1e-6)                              # target hue at full brightness
+    nuovo = mn[..., None] + (mx - mn)[..., None] * c[None, None, :]
+    rgb2 = rgb * (1 - peso[..., None]) + nuovo * peso[..., None]
+    out = np.concatenate([rgb2, a[..., 3:4]], -1)
+    return Image.fromarray((np.clip(out, 0, 1) * 255 + .5).astype(np.uint8), "RGBA")
+
+
+def immagine(dst, path, cx, cy, lato, tinta=None, da="rosso"):
+    """a picture file (RGBA), cut to its drawing and fitted in a lato x lato square centred on cx, cy
+    (alpha >= 250 counted as opaque)"""
+    im = Image.open(path).convert("RGBA")
+    if tinta is not None:
+        im = ricolora(im, tinta, da)
+    a = np.asarray(im, np.float32) / 255
+    a[..., 3] = np.where(a[..., 3] >= 250 / 255, 1.0, a[..., 3])
+    im = Image.fromarray((a * 255 + .5).astype(np.uint8), "RGBA")
+    bb = Image.fromarray((a[..., 3] > 8 / 255).astype(np.uint8) * 255, "L").getbbox()   # only the drawing, centred
+    if bb:
+        im = im.crop(bb)
+    k = lato * S / max(im.size)
+    im = im.resize((max(1, int(round(im.width * k))), max(1, int(round(im.height * k)))), Image.LANCZOS)
+    x0, y0 = P(cx - im.width / S / 2, cy - im.height / S / 2)
+    lay = np.zeros((HS, WS, 4), np.float32)
+    src = np.asarray(im, np.float32) / 255
+    src[..., :3] *= src[..., 3:4]
+    xa, ya = int(round(x0)), int(round(y0))
+    xb, yb = min(WS, xa + im.width), min(HS, ya + im.height)
+    sx, sy = max(0, -xa), max(0, -ya)
+    xa, ya = max(0, xa), max(0, ya)
+    lay[ya:yb, xa:xb] = src[sy:sy + (yb - ya), sx:sx + (xb - xa)]
+    sopra(dst, lay)
+
+
 def linea(dst, p0, p1, larg, col, alfa=1.0):
     m = maschera(lambda d: d.line([P(*p0), P(*p1)], fill=255, width=int(larg * S)))
     sopra(dst, colore(col, m * alfa))

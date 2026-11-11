@@ -9,3 +9,8 @@ usb/nbt-evo-apps/*/lib*.so
 *.log
 tests/out/
 tools/__pycache__/
+# your own icons: never in the repository
+tools/icone_mie/
+# built by tools/make_minisport.py (pictures): they go in the Releases
+usb/nbt-evo-apps/MiniSport/bg_*.png
+usb/nbt-evo-apps/MiniSport/MiniSport_ALL_Images.zip

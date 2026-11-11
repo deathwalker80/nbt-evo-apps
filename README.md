@@ -32,6 +32,7 @@ What the test plugin `SportTest` (t1) showed in the car, and how MINI Sport uses
 ## Install
 
 The `usb/nbt-evo-apps` folder goes in the root of a FAT USB stick (next to anything else already there).
+The pictures of MINI Sport and `libMiniSport.so` are not in the repository: build them first (see Build).
 On the head unit shell (SSH root needed):
 
 ```sh
@@ -58,6 +59,9 @@ python3 tools/make_minisport.py   # pictures, zips, XML into usb/nbt-evo-apps/Mi
 sh build/build.sh                 # libSportTest.so, libMiniSport.so (clang + ld.lld, no QNX SDK)
 sh tests/host_minisport.sh        # MINI Sport on the PC with a fake framework, pages drawn into tests/out/ (root: /opt/hmi, /dev/shmem)
 ```
+
+The menu icons come from `tools/icone/`; put your own in `tools/icone_mie/` (same names: `app.png`, `giri.png`,
+`gmeter.png`, `crono.png`, `motore.png`) and the generator uses those instead. That folder is never committed.
 
 `build/build.sh` needs `libAppFramework.A.so` and `libCoreFramework.A.so` from **your** head unit in `build/link/`
 (`find / -name "lib*Framework.A.so"` on the head unit): they belong to the head unit and are not in this repository.
