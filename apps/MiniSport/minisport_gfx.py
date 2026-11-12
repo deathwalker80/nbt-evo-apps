@@ -175,6 +175,9 @@ def linea(dst, p0, p1, larg, col, alfa=1.0):
     sopra(dst, colore(col, m * alfa))
 
 
+FACCIA_PIATTA = False   # inner disc of the dials: gradient (False) or one translucent colour (True)
+
+
 def lente_nativa(dst, cx, cy, r, anello=None, interno=0.74, ombra_lunga=True):
     """as the Bluetooth/map discs of the native home: dark translucent disc, light thread, inner raised disc
     (light top-left) with a soft shadow bottom-right"""
@@ -196,7 +199,10 @@ def lente_nativa(dst, cx, cy, r, anello=None, interno=0.74, ombra_lunga=True):
         sopra(dst, colore((0, 10, 18), m * 0.45 * cop))
     ci = liscio(d_cerchio(cx, cy, ri))
     g = np.clip(((XX - cx) * -0.6 + (YY - cy) * -0.8) / ri * 0.5 + 0.5, 0, 1)
-    rgb = np.stack([40 + 70 * g, 78 + 92 * g, 92 + 88 * g], -1)
+    if FACCIA_PIATTA:      # one translucent colour (the middle of the gradient): no bands in a 256-colour PNG
+        rgb = np.stack([np.full_like(g, 75.0), np.full_like(g, 124.0), np.full_like(g, 136.0)], -1)
+    else:
+        rgb = np.stack([40 + 70 * g, 78 + 92 * g, 92 + 88 * g], -1)
     sopra(dst, colore(rgb, ci * 0.55))
     sopra(dst, colore((0, 0, 0), ci * 0.22))
     sopra(dst, colore(BIANCO, liscio(np.abs(d_cerchio(cx, cy, ri)) - 0.7) * (0.12 + 0.30 * g)))
