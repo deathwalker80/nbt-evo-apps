@@ -21,7 +21,7 @@ def _chiave(r, g, b, a):
     return ((a >> 4) << 15) | ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)
 
 
-def _tavolozza(px, w, h, soglia=255):
+def _tavolozza(px, w, h, soglia=255, alfa=False):
     """px: uint8 array (h*w, 4) RGBA -> (colori list of (r, g, b, a), indici uint8 array); pixels with alpha >= soglia get
     the error diffusion (255 = opaque only, as PngLeggero.kt)"""
     r = px[:, 0].astype(np.int64)
@@ -141,9 +141,9 @@ def _tavolozza(px, w, h, soglia=255):
     pl = px.reshape(h, w, 4).astype(np.int64)
     opaco = pl[..., 3] >= soglia
     ind = np.zeros((h, w), np.uint8)
-    qui = [[0, 0, 0] for _ in range(w + 2)]
+    qui = [[0, 0, 0, 0] for _ in range(w + 2)]
     for y in range(h):
-        sotto = [[0, 0, 0] for _ in range(w + 2)]
+        sotto = [[0, 0, 0, 0] for _ in range(w + 2)]
         riga = pl[y]
         opr = opaco[y]
         opn = opaco[y + 1] if y + 1 < h else None
@@ -158,10 +158,16 @@ def _tavolozza(px, w, h, soglia=255):
             rr = min(255, max(0, rr + int(e[0] / 16)))
             gg = min(255, max(0, gg + int(e[1] / 16)))
             bb = min(255, max(0, bb + int(e[2] / 16)))
-            kk = indice(rr, gg, bb, aa)
+            if alfa:             # the transparency too gets the error diffusion (fades of translucent areas)
+                aa = min(255, max(0, aa + int(e[3] / 16)))
+            if alfa and aa < 8 and base == 1:
+                kk = 0
+            else:
+                kk = indice(rr, gg, bb, aa)
             ind[y, x] = kk
             c = colori[kk]
             er, eg, eb = rr - c[0], gg - c[1], bb - c[2]
+            ea = aa - c[3] if alfa else 0
             for dest, xx, ok, f in ((qui, x + 1, x + 1 < w and opr[x + 1], 7),
                                     (sotto, x - 1, opn is not None and x >= 1 and opn[x - 1], 3),
                                     (sotto, x, opn is not None and opn[x], 5),
@@ -171,6 +177,7 @@ def _tavolozza(px, w, h, soglia=255):
                     d[0] += er * f
                     d[1] += eg * f
                     d[2] += eb * f
+                    d[3] += ea * f
         qui = sotto
     return colori, ind.reshape(-1)
 
@@ -179,13 +186,14 @@ def _pezzo(tipo, dati):
     return struct.pack(">I", len(dati)) + tipo + dati + struct.pack(">I", zlib.crc32(tipo + dati) & 0xFFFFFFFF)
 
 
-def codifica(im, soglia=255):
+def codifica(im, soglia=255, alfa=False):
     """PIL image -> 256-colour PNG bytes (palette + tRNS), like PngLeggero.kt; soglia < 255 extends the error diffusion
-    to semi-transparent pixels (translucent gradients, e.g. the dial faces of MINI Sport)"""
+    to semi-transparent pixels (translucent gradients, e.g. the dial faces of MINI Sport); alfa=True diffuses the error
+    of the transparency too (fades to transparent, e.g. the highlight column of the menu)"""
     im = im.convert("RGBA")
     w, h = im.size
     px = np.asarray(im, np.uint8).reshape(-1, 4)
-    colori, ind = _tavolozza(px, w, h, soglia)
+    colori, ind = _tavolozza(px, w, h, soglia, alfa)
     out = b"\x89PNG\r\n\x1a\n" + _pezzo(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 3, 0, 0, 0))
     out += _pezzo(b"PLTE", bytes(v for c in colori for v in c[:3]))
     ultimo = len(colori)
