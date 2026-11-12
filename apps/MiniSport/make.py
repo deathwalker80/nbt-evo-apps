@@ -20,6 +20,7 @@ from multiprocessing import Pool
 QUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, QUI)
 import minisport_gfx as g                      # noqa: E402
+import png_leggero                             # noqa: E402
 
 NOME = "MiniSport"
 VERSIONE = dict(r.rstrip("\n").split("=", 1) for r in open(os.path.join(QUI, "package.txt"), encoding="utf-8")
@@ -612,7 +613,11 @@ def lavoro_sfondo(arg):
     # the car photos show the page visible down to about y 470
     g.testo(lay, (1136, 456), "© DeathWalkeR", 12, alfa=0.14, peso="Medium", anchor="rb", disp=False, ombra_t=False)
     nome = f"bg_menu{scelta}_{tema}.png" if tipo == "menu" else f"bg_{tipo}_{tema}.png"
-    return nome, _png(g.a_pil(lay))
+    # 256 colours, the iDrive Plus algorithm (format of its pages, working in the car): the pages with the error
+    # diffusion extended to the translucent dial faces, the menu also on the transparency (fade of the highlight column)
+    if tipo == "menu":
+        return nome, png_leggero.codifica(g.a_pil(lay), soglia=8, alfa=True)
+    return nome, png_leggero.codifica(g.a_pil(lay), soglia=128)
 
 
 _FATTO = False
