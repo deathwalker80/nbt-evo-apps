@@ -21,7 +21,7 @@ NOME = "AppUsb"
 OUT = os.path.join(QUI, "..", "..", "usb", "nbt-evo-apps", "pacchetti", NOME)
 VERSIONE = dict(r.rstrip("\n").split("=", 1) for r in open(os.path.join(QUI, "package.txt"), encoding="utf-8")
                 if "=" in r)["version"]
-FOCUS, CONNETTORE, ID_ICONA = 32759, 219, 64300
+FOCUS, CONNETTORE, ID_ICONA = 32759, 219, 64150   # outside MiniSport 64200-65000 and SportTest 64001-64110
 
 # rows: native buttons, x, width, height, first y, step (screen 1280x480, safe area x 10-1140, y 6-420)
 RX, RW, RH, RY0, RPASSO = 150, 860, 44, 74, 48

@@ -153,7 +153,7 @@ unsigned char* bloccoDaFile(const char* nome) {
     snprintf(path, sizeof(path), "%s/%s", kDirPlugin, nome);
     int fd = open(path, O_RDONLY_Q);
     if (fd < 0) return 0;
-    u32 cap = 256 * 1024, tot = 0;
+    u32 cap = 1024 * 1024, tot = 0;     // the menu backgrounds are 264-267 KB: 256 KB cut them out
     unsigned char* b = (unsigned char*)malloc(4 + cap);
     if (!b) { close(fd); return 0; }
     for (;;) {

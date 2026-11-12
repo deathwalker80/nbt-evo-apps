@@ -127,7 +127,9 @@ The framework declarations are in [framework/bmw_plugin.h](framework/bmw_plugin.
    reset=<Name>.avvii
    disable_file=/opt/aa/<name>.disable
    ```
-2. A new focus id and connector id (used: focus 32759-32767, connector 212-219).
+2. A new focus id, connector id and image ids (used: focus 32759-32767, connector 212-219; images SportTest
+   64001-64110, AppUsb 64150, MiniSport 64200-65000, iDrive Plus 57001-63001). Image ids are shared by all the
+   plugins: never give the same id to two plugins.
 3. `build/build.sh` and `tools/pacchetti.py` pick it up by themselves.
 
 ## Not included on purpose
