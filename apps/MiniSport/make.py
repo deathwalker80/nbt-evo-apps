@@ -608,8 +608,9 @@ def lavoro_sfondo(arg):
     definisci_una_volta()
     g.pagina()
     lay = sfondo_menu(tema, scelta) if tipo == "menu" else SFONDI[tipo](tema)
-    # copyright, bottom right of the safe area, almost invisible
-    g.testo(lay, (1136, 416), "© DeathWalkeR", 12, alfa=0.14, peso="Medium", anchor="rb", disp=False, ombra_t=False)
+    # copyright, almost invisible: bottom right, under everything of every screen (the menu highlight ends at y 430);
+    # the car photos show the page visible down to about y 470
+    g.testo(lay, (1136, 456), "© DeathWalkeR", 12, alfa=0.14, peso="Medium", anchor="rb", disp=False, ombra_t=False)
     nome = f"bg_menu{scelta}_{tema}.png" if tipo == "menu" else f"bg_{tipo}_{tema}.png"
     return nome, _png(g.a_pil(lay))
 
