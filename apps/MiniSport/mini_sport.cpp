@@ -147,23 +147,23 @@ void scriviNumeri(const char* path, const int* v, int n) {
     fclose(f);
 }
 
-// [u32 size][bytes] of a file in the plugin folder (pictures: at most 256 KB)
+// [u32 size][bytes] of a file in the plugin folder (pictures: at most 1 MB); every failure is written in the log
 unsigned char* bloccoDaFile(const char* nome) {
     char path[192];
     snprintf(path, sizeof(path), "%s/%s", kDirPlugin, nome);
     int fd = open(path, O_RDONLY_Q);
-    if (fd < 0) return 0;
+    if (fd < 0) { scriviLog("%s: MISSING (cannot open %s)", nome, path); return 0; }
     u32 cap = 1024 * 1024, tot = 0;     // the menu backgrounds are 264-267 KB: 256 KB cut them out
     unsigned char* b = (unsigned char*)malloc(4 + cap);
-    if (!b) { close(fd); return 0; }
+    if (!b) { close(fd); scriviLog("%s: no memory for %u bytes", nome, cap); return 0; }
     for (;;) {
-        if (tot == cap) { tot = 0; break; }
+        if (tot == cap) { close(fd); free(b); scriviLog("%s: bigger than %u bytes, not sent", nome, cap); return 0; }
         ssize_t_q r = read(fd, b + 4 + tot, cap - tot);
         if (r <= 0) break;
         tot += (u32)r;
     }
     close(fd);
-    if (!tot) { free(b); return 0; }
+    if (!tot) { free(b); scriviLog("%s: empty file", nome); return 0; }
     memcpy(b, &tot, 4);
     return b;
 }
@@ -186,7 +186,9 @@ void mostraImmagine(u32 modello, const unsigned char* blocco) {
 
 bool mostraFile(u32 modello, const char* nome) {
     unsigned char* b = bloccoDaFile(nome);
-    if (!b) { scriviLog("%s: MISSING", nome); return false; }
+    if (!b) return false;
+    u32 n; memcpy(&n, b, 4);
+    scriviLog("%s: %u bytes sent to model %u", nome, n, modello);
     mostraImmagine(modello, b);
     free(b);
     return true;

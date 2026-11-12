@@ -590,26 +590,6 @@ def _png(im):
     return b.getvalue()
 
 
-def _png_leggero(im):
-    """256-colour PNG when it looks the same (checked over a dark and a blue background), else full colour"""
-    import numpy as np
-    from PIL import Image
-    pieno = _png(im)
-    if im.width * im.height < 400:
-        return pieno
-    q = im.quantize(256, method=Image.Quantize.FASTOCTREE)
-    leggero = _png(q)
-    if len(leggero) >= len(pieno):
-        return pieno
-    qa = q.convert("RGBA")
-    for c in ((10, 10, 12, 255), (40, 90, 105, 255)):
-        bg = Image.new("RGBA", im.size, c)
-        d = np.abs(np.asarray(Image.alpha_composite(bg, im), float) - np.asarray(Image.alpha_composite(bg, qa), float))[..., :3]
-        if d.mean() > 1.5 or d.max() > 48:
-            return pieno
-    return leggero
-
-
 def lavoro_set(arg):
     nome, tema = arg
     definisci_una_volta()
@@ -619,7 +599,7 @@ def lavoro_set(arg):
     out = []
     for fr in s.frames:
         lay = s.disegna(tema, fr, s.box)
-        out.append(_png_leggero(g.a_pil(lay)))
+        out.append(_png(g.a_pil(lay)))       # full colour (RGBA) only: the format tried in the car
     return nome, tema, out
 
 
@@ -628,6 +608,8 @@ def lavoro_sfondo(arg):
     definisci_una_volta()
     g.pagina()
     lay = sfondo_menu(tema, scelta) if tipo == "menu" else SFONDI[tipo](tema)
+    # copyright, bottom right of the safe area, almost invisible
+    g.testo(lay, (1136, 416), "© DeathWalkeR", 12, alfa=0.14, peso="Medium", anchor="rb", disp=False, ombra_t=False)
     nome = f"bg_menu{scelta}_{tema}.png" if tipo == "menu" else f"bg_{tipo}_{tema}.png"
     return nome, _png(g.a_pil(lay))
 
