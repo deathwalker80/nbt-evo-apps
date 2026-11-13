@@ -1,0 +1,7 @@
+name=ProvaZipE
+title=Prova zip E (test)
+version=t0
+group=nbt-evo-apps
+brands=all
+dest=plugin
+disable_file=/opt/aa/provazip.disable

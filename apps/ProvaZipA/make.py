@@ -6,11 +6,16 @@ of pictures. In every zip the icon of the list is the LAST picture: it shows onl
   C: 49 big pictures + icon (about 2.5 MB)
 Ids (free, see README): focus 32757/32756/32755, connector 221/222/223, pictures A 65100-65199, B 65200-65599,
 C 65600-65649.
-Usage: python3 apps/ProvaZipA/make.py     (writes usb/nbt-evo-apps/pacchetti/ProvaZip{A,B,C}/)
+Second round (after A and B showed their icon and C did not, 13/11): D one 50 KB picture (as those of C) + icon;
+E, F, G 100 noise pictures of about 3, 7 and 15 KB (zip of about 300 KB, 700 KB, 1.5 MB).
+Ids D-G: focus 32754/32750/32749/32748, connector 224-227, pictures 66000-66001, 66100-66199, 66200-66299,
+66300-66399 (ids over 65535 load: the icon of B is 65599).
+Usage: python3 apps/ProvaZipA/make.py [A B ...]     (writes usb/nbt-evo-apps/pacchetti/ProvaZip<X>/)
 """
 import io
 import os
 import random
+import sys
 import zipfile
 
 from PIL import Image, ImageDraw, ImageFont
@@ -21,6 +26,11 @@ PROVE = {
     "A": dict(focus=32757, conn=221, primo=65100, n=100, lato=40, rumore=False, testo="Prova zip A: 100 immagini piccole"),
     "B": dict(focus=32756, conn=222, primo=65200, n=400, lato=40, rumore=False, testo="Prova zip B: 400 immagini piccole"),
     "C": dict(focus=32755, conn=223, primo=65600, n=50, lato=112, rumore=True, testo="Prova zip C: 50 immagini grandi"),
+    # second round (13/11 evening): A and B loaded, C (2.5 MB) did not -> size of one picture or size of the zip?
+    "D": dict(focus=32754, conn=224, primo=66000, n=2, lato=112, rumore=True, testo="Prova zip D: 1 immagine da 50 KB"),
+    "E": dict(focus=32750, conn=225, primo=66100, n=100, lato=28, rumore=True, testo="Prova zip E: 300 KB in tutto"),
+    "F": dict(focus=32749, conn=226, primo=66200, n=100, lato=42, rumore=True, testo="Prova zip F: 700 KB in tutto"),
+    "G": dict(focus=32748, conn=227, primo=66300, n=100, lato=61, rumore=True, testo="Prova zip G: 1,5 MB in tutto"),
 }
 
 
@@ -125,7 +135,9 @@ def manifest(nome, p):
 def main():
     nomi = {"de": "Deutsch", "en-UK": "English (UK)", "en-US": "English (US)", "es-ES": "Español", "es-US": "Español (US)",
             "fr-CA": "Français (CA)", "fr-FR": "Français", "it": "Italiano", "pt": "Português", "ru": "Русский"}
-    for lettera, p in PROVE.items():
+    scelte = sys.argv[1:] or list(PROVE)
+    for lettera in scelte:
+        p = PROVE[lettera]
         nome = "ProvaZip" + lettera
         out = os.path.join(PACCHETTI, nome)
         os.makedirs(out, exist_ok=True)

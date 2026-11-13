@@ -130,8 +130,8 @@ The framework declarations are in [framework/bmw_plugin.h](framework/bmw_plugin.
    reset=<Name>.avvii
    disable_file=/opt/aa/<name>.disable
    ```
-2. A new focus id, connector id and image ids (used: focus 32755-32767, connector 212-223; images SportTest
-   64001-64110, AppUsb 64150, LetturaDati 64160, MiniSport 64200-65000, ProvaZip 65100-65649, iDrive Plus
+2. A new focus id, connector id and image ids (used: focus 32748-32750, 32754-32767, connector 212-227; images SportTest
+   64001-64110, AppUsb 64150, LetturaDati 64160, MiniSport 64200-65000, ProvaZip 65100-65649 and 66000-66399, iDrive Plus
    57001-63001; NBT-AAD uses
    focus 32752-32753, connector 210, images 55001-55002). Image ids are shared by all the plugins: never give the
    same id to two plugins.

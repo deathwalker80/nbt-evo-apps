@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pluginApps>
+  <pluginApp applicationType="Custom" applicationWeight="200" entryButtonFocusID="32754" insertStateID="50" text="Prova zip D: 1 immagine da 50 KB">
+    <comment>ProvaZipD t0 (nbt-evo-apps): TEST, 2 pictures in the zip, the icon (66001) is the last one</comment>
+    <entryButton action="5" id="1" model="3" imageModel="4">
+      <properties/>
+    </entryButton>
+    <actions>
+      <hmiAction id="5" target="100"/>
+      <raAction id="58"/>
+      <raAction id="59"/>
+    </actions>
+    <models>
+      <textIdModel id="3" textId="1">
+        <synonyms/>
+      </textIdModel>
+      <imageIdModel id="4" imageId="66001"/>
+      <raDataModel id="41"/>
+      <raImageModel id="141"/>
+    </models>
+    <events/>
+    <hmiStates>
+      <hmiState id="100" text="Prova zip D: 1 immagine da 50 KB" textModel="3">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="59" selectAction="58" id="200" model="41" imageModel="141" text="Prova zip D: 1 immagine da 50 KB">
+            <properties>
+              <property id="9" value="860"/>
+              <property id="10" value="44"/>
+              <property id="20" value="150"/>
+              <property id="21" value="74"/>
+            </properties>
+          </button>
+        </components>
+      </hmiState>
+    </hmiStates>
+  </pluginApp>
+</pluginApps>
