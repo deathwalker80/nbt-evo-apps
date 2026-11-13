@@ -14,6 +14,7 @@ apps/*/icone_mie/
 # built by tools/make_minisport.py (pictures): they go in the Releases
 usb/nbt-evo-apps/pacchetti/MiniSport/bg_*.png
 usb/nbt-evo-apps/pacchetti/MiniSport/MiniSport_ALL_Images.zip
+usb/nbt-evo-apps/pacchetti/MiniSport/MiniSport_pezzi.bin
 # iDrive Plus plugins imported by tools/importa_idrive_plus.py (built files of the idrive-plus release)
 usb/nbt-evo-apps/pacchetti/Meteo/
 usb/nbt-evo-apps/pacchetti/Notizie/
