@@ -12,8 +12,9 @@ be for every car or for one brand (MINI, BMW, Supra): you choose your car once.
 
 | App | Package | For | Status |
 |---|---|---|---|
-| **MINI Sport**: revs and shift light, G-meter, timers (0-100, 0-50, 80-120, braking 100-0), engine gauges | `MiniSport` | MINI | s1, not yet tried in a car |
+| **MINI Sport**: revs and shift light, G-meter, timers (0-100, 0-50, 80-120, braking 100-0), engine gauges | `MiniSport` | MINI | s1: first car test (12/11) failed - menu backgrounds and picture zip - fixed, to try again |
 | **App da USB**: the packages of the stick from the iDrive menu, with the knob | `AppUsb` | all | t0 = diagnosis only, installs nothing |
+| **Lettura dati**: TEST, reads only - which car data (CDS) a plugin gets, and the graphics libraries of the HMI | `LetturaDati` | all | t0 |
 | SportTest: test plugin of the car data and of the HMI calls | `SportTest` | all | t1, tried in the car (results below); replaced by MINI Sport |
 
 The stick can also carry the **iDrive Plus** plugins (weather, news, fuel, traffic, vehicle status) as packages:
@@ -95,12 +96,14 @@ usb/nbt-evo-apps/       the stick folder: pkg.sh, install.sh, remove.sh, README.
 ```sh
 python3 apps/MiniSport/make.py    # pictures, zips, XML of MINI Sport + apps/MiniSport/layout.h (a few minutes)
 python3 apps/AppUsb/make.py       # XML, zips of App da USB
+python3 apps/LetturaDati/make.py  # XML, zips of Lettura dati
 python3 apps/SportTest/make.py    # XML, pictures of SportTest
 sh build/build.sh                 # lib<Name>.so of every app (clang + ld.lld, no QNX SDK)
 python3 tools/importa_idrive_plus.py <iDrive Plus stick folder>     # optional
 python3 tools/pacchetti.py        # package.txt and files.sum of every package
 sh apps/MiniSport/test/host.sh    # MINI Sport on the PC with a fake framework, pages drawn into apps/MiniSport/test/out/
 sh apps/AppUsb/test/host.sh       # App da USB on the PC (root: /opt/aa, /mnt, /dev/shmem)
+sh apps/LetturaDati/test/host.sh  # Lettura dati on the PC: CDS from another thread, the stick marker (root: /mnt, /dev/shmem)
 ```
 
 The version of an app is written only in its `package.txt`.
@@ -127,9 +130,10 @@ The framework declarations are in [framework/bmw_plugin.h](framework/bmw_plugin.
    reset=<Name>.avvii
    disable_file=/opt/aa/<name>.disable
    ```
-2. A new focus id, connector id and image ids (used: focus 32759-32767, connector 212-219; images SportTest
-   64001-64110, AppUsb 64150, MiniSport 64200-65000, iDrive Plus 57001-63001). Image ids are shared by all the
-   plugins: never give the same id to two plugins.
+2. A new focus id, connector id and image ids (used: focus 32758-32767, connector 212-220; images SportTest
+   64001-64110, AppUsb 64150, LetturaDati 64160, MiniSport 64200-65000, iDrive Plus 57001-63001; NBT-AAD uses
+   focus 32752-32753, connector 210, images 55001-55002). Image ids are shared by all the plugins: never give the
+   same id to two plugins.
 3. `build/build.sh` and `tools/pacchetti.py` pick it up by themselves.
 
 ## Not included on purpose

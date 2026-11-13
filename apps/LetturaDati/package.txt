@@ -1,0 +1,8 @@
+name=LetturaDati
+title=Lettura dati (test)
+version=t0
+group=nbt-evo-apps
+brands=all
+dest=plugin
+reset=LetturaDati.avvii
+disable_file=/opt/aa/letturadati.disable

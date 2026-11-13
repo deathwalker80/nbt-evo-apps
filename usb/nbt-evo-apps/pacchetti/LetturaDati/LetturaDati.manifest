@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<plugin>
+	<name>LetturaDati</name>
+	<type>App</type>
+	<file>{pluginDir}/LetturaDati</file>
+	<config>
+		<autoStart>yes</autoStart>
+		<dependencies>
+			<pluginAppConnector>
+				<type>Etch</type>
+				<id>220</id>
+				<asyncCallbacks>yes</asyncCallbacks>
+			</pluginAppConnector>
+		</dependencies>
+		<parameters>
+			<DescFile>{pluginDir}/LetturaDati.xml</DescFile>
+			<TextDBFile>{pluginDir}/LetturaDati_ALL_Texts.zip</TextDBFile>
+			<ImageDBFile>{pluginDir}/LetturaDati_ALL_Images.zip</ImageDBFile>
+		</parameters>
+	</config>
+</plugin>

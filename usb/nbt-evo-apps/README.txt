@@ -9,6 +9,10 @@ PACKAGES
               (0-100, 0-50, 80-120, braking 100-0), Strumenti motore. MID/GREEN blue, SPORT red.
   AppUsb      App da USB t0 (all cars) - in the menu as "App da USB". t0 = DIAGNOSIS ONLY, installs nothing:
               shows the packages of the stick, lets you choose the car, checks what the real installer needs.
+  LetturaDati Lettura dati t0 (all cars) - TEST, READS ONLY: in the menu as "Lettura dati". Writes to its log
+              (nbt-evo-apps/LetturaDati.log) the car data the head unit gives (152 properties: how often, what
+              values) and which graphics libraries (EGL, GLES2, screen, LayerManager) the HMI has. Reads the car
+              data only with the stick in. Remove it after the test: pkg.sh remove LetturaDati
   SportTest   the test plugin of t1: replaced by MINI Sport (installing MINI Sport moves it to plugins_off).
   Meteo, Notizie, Locali, Carburanti, Traffico, Auto   iDrive Plus plugins, if the stick has them.
 
@@ -29,6 +33,10 @@ INSTALL (omap shell, the whole nbt-evo-apps folder in the root of the stick)
   pkg.sh restore NAME         back to the version before the last install (one is kept)
   Log of pkg.sh: nbt-evo-apps/pkg.log on the stick.
   sh /mnt/umass*/nbt-evo-apps/verifica.sh   reads only: can a plugin install by itself? report: nbt-evo-apps/verifica.log
+  sh /mnt/umass*/nbt-evo-apps/gpu-verifica.sh NAME   reads only: how the LayerManager composes the screen now
+                                    (run it once per screen, e.g. home / minisport); report: nbt-evo-apps/gpu-NAME.log
+  nbt-evo-apps/LetturaDati.stato    marker of Lettura dati: "group N" = a start stopped while registering car data,
+                                    the next starts read nothing until you delete it
 
 MINI SPORT - CHECK PARKED, ENGINE OFF
   touch /dev/shmem/MiniSport.demo      demo values: everything moves (within 5 s)

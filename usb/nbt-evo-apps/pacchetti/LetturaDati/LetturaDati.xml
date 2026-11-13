@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pluginApps>
+  <pluginApp applicationType="Custom" applicationWeight="200" entryButtonFocusID="32758" insertStateID="50" text="Lettura dati">
+    <comment>Lettura dati t0 (nbt-evo-apps): TEST, reads the car data and writes them to its log only</comment>
+    <entryButton action="5" id="1" model="3" imageModel="4">
+      <properties/>
+    </entryButton>
+    <actions>
+      <hmiAction id="5" target="100"/>
+      <raAction id="20"/>
+      <raAction id="21"/>
+      <raAction id="22"/>
+      <raAction id="23"/>
+      <raAction id="24"/>
+      <raAction id="25"/>
+      <raAction id="26"/>
+      <raAction id="59"/>
+    </actions>
+    <models>
+      <textIdModel id="3" textId="1">
+        <synonyms/>
+      </textIdModel>
+      <imageIdModel id="4" imageId="64160"/>
+      <raDataModel id="41"/>
+      <raImageModel id="141"/>
+      <raDataModel id="42"/>
+      <raImageModel id="142"/>
+      <raDataModel id="43"/>
+      <raImageModel id="143"/>
+      <raDataModel id="44"/>
+      <raImageModel id="144"/>
+      <raDataModel id="45"/>
+      <raImageModel id="145"/>
+      <raDataModel id="46"/>
+      <raImageModel id="146"/>
+      <raDataModel id="47"/>
+      <raImageModel id="147"/>
+    </models>
+    <events/>
+    <hmiStates>
+      <hmiState id="100" text="Lettura dati" textModel="3">
+        <properties>
+          <property id="24" value="3"/>
+        </properties>
+        <components>
+          <button action="59" selectAction="20" id="200" model="41" imageModel="141" text=" ">
+            <properties>
+              <property id="9" value="1060"/>
+              <property id="10" value="44"/>
+              <property id="20" value="60"/>
+              <property id="21" value="74"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="21" id="201" model="42" imageModel="142" text=" ">
+            <properties>
+              <property id="9" value="1060"/>
+              <property id="10" value="44"/>
+              <property id="20" value="60"/>
+              <property id="21" value="122"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="22" id="202" model="43" imageModel="143" text=" ">
+            <properties>
+              <property id="9" value="1060"/>
+              <property id="10" value="44"/>
+              <property id="20" value="60"/>
+              <property id="21" value="170"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="23" id="203" model="44" imageModel="144" text=" ">
+            <properties>
+              <property id="9" value="1060"/>
+              <property id="10" value="44"/>
+              <property id="20" value="60"/>
+              <property id="21" value="218"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="24" id="204" model="45" imageModel="145" text=" ">
+            <properties>
+              <property id="9" value="1060"/>
+              <property id="10" value="44"/>
+              <property id="20" value="60"/>
+              <property id="21" value="266"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="25" id="205" model="46" imageModel="146" text=" ">
+            <properties>
+              <property id="9" value="1060"/>
+              <property id="10" value="44"/>
+              <property id="20" value="60"/>
+              <property id="21" value="314"/>
+            </properties>
+          </button>
+          <button action="59" selectAction="26" id="206" model="47" imageModel="147" text=" ">
+            <properties>
+              <property id="9" value="1060"/>
+              <property id="10" value="44"/>
+              <property id="20" value="60"/>
+              <property id="21" value="362"/>
+            </properties>
+          </button>
+        </components>
+      </hmiState>
+    </hmiStates>
+  </pluginApp>
+</pluginApps>
