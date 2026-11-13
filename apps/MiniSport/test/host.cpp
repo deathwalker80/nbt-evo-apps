@@ -4,6 +4,7 @@
 // Usage: sh apps/MiniSport/test/host.sh
 #include "../mini_sport.cpp"
 extern "C" int printf(const char*, ...);
+extern "C" int memcmp(const void*, const void*, unsigned long);
 extern "C" void bsCrea(void* self, const char* s) __asm__("_ZN3bmw11BasicStringIcEC1EPKc");
 extern "C" void bsCrea(void* self, const char* s) { *(const char**)self = s; }
 extern "C" void bsDistruggi(void* self) __asm__("_ZN3bmw11BasicStringIcED1Ev");
@@ -36,25 +37,37 @@ Parcel::Parcel(int v) { m_storage[0] = 'i'; memcpy(m_storage + 4, &v, 4); }
 PluginApp::PluginApp(IDispatcher&, BasicString<char>, u32, u32, RHMIInterfaceVersion, const Bundle&, const Bundle&) {}
 void PluginApp::post(Runnable*, u32) {}
 
-const u32 kMaxId = 2000;
-u32 g_idDi[kMaxId];              // model -> picture id of the zip (0 = none)
+const u32 kMaxId = 4000;
+u32 g_idDi[kMaxId];              // model -> picture id of MiniSport_pezzi.bin (0 = none)
 u32 g_imgDi[kMaxId];             // model -> number of the picture file sent (0 = none)
 int g_x[kMaxId], g_y[kMaxId];    // component -> position set (-1000000 = as in the XML)
 u32 g_nImg = 0, g_nId = 0, g_nProp = 0, g_nTesti = 0;
 const char* g_dirOut = "test/out";
 
 void PluginApp::updateModel(u32, const char*) { ++g_nTesti; }
+u32 idDelPezzo(const unsigned char* c, u32 n) {   // the id of MiniSport_pezzi.bin with exactly these bytes, 0 = none
+    if (!g_pezzi) return 0;
+    for (u32 i = 0; i < g_pezziN; ++i) {
+        u32 o, s;
+        memcpy(&o, g_pezzi + 12 + 8 * i, 4);
+        memcpy(&s, g_pezzi + 16 + 8 * i, 4);
+        if (s == n && memcmp(g_pezzi + o, c, n) == 0) return g_pezziPrimo + i;
+    }
+    return 0;
+}
 void PluginApp::updateModel(u32 id, const Image& im) {
     unsigned char* c; u32 n;
     memcpy(&c, &im, sizeof(c));
     memcpy(&n, (const unsigned char*)&im + 8, 4);
+    u32 pezzo = idDelPezzo(c, n);
+    if (pezzo) { free(c); if (id < kMaxId) { g_idDi[id] = pezzo; g_imgDi[id] = 0; } ++g_nId; return; }
     ++g_nImg;
     char path[160];
     snprintf(path, sizeof(path), "%s/img_%u.png", g_dirOut, g_nImg);
     void* f = fopen(path, "wb");
     if (f) { fwrite(c, 1, n, f); fclose(f); }
     free(c);
-    if (id < kMaxId) g_imgDi[id] = g_nImg;
+    if (id < kMaxId) { g_imgDi[id] = g_nImg; g_idDi[id] = 0; }
 }
 void PluginApp::updateModel(u32 id, const ImageID& im) { u32 n; memcpy(&n, &im, 4); if (id < kMaxId) g_idDi[id] = n; ++g_nId; }
 void PluginApp::setProperty(u32 c, u32 p, const Parcel& v) {
@@ -87,7 +100,7 @@ void avanti(u32 ms) {                       // ticks of 50 ms
 
 void scegliMenu(int i) {
     static char finto[64];
-    sceltaMenu((void*)(unsigned long)i, *(const bmw::Parcel*)finto);
+    sceltaMenu((void*)(unsigned long)(kAzioneScelta0 + i), *(const bmw::Parcel*)finto);   // object = action id, as in onInit
 }
 
 // state of the screen for the preview: page, theme, background picture of each model, picture id of each model,
@@ -147,7 +160,7 @@ int main() {
     for (int tema = 0; tema < 2; ++tema) {
         const char* tn = tema ? "sport" : "mid";
         char nome[64];
-        valoriBase(tema ? 3 : 4);
+        valoriBase(tema ? 4 : 3);                 // driving.mode in the car: 3 = MID, 4 = SPORT
         avanti(200);
         // menu with each choice
         for (int i = 0; i < 4; ++i) { scegliMenu(i); avanti(100); snprintf(nome, sizeof(nome), "menu%d_%s", i, tn); fotografa(nome, 100); }

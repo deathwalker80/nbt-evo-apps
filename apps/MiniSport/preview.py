@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Draws the screens of the host test (apps/MiniSport/test/host.sh) as the HMI would: for every <name>.txt of the test
-(state shown, theme, picture sent to each model, picture id of the zip of each model, components moved) the
+(state shown, theme, picture sent to each model, id of the MiniSport_pezzi.bin picture of each model, components moved) the
 components of that state of MiniSport.xml are drawn in their order over an approximate MINI background
 (MID blue / SPORT black: drawn here, no picture of the head unit).
 Usage: python3 apps/MiniSport/preview.py <folder>     -> <folder>/<name>.png and <folder>/all.png
@@ -9,9 +9,9 @@ Usage: python3 apps/MiniSport/preview.py <folder>     -> <folder>/<name>.png and
 import glob
 import io
 import os
+import struct
 import sys
 import xml.etree.ElementTree as ET
-import zipfile
 
 import numpy as np
 from PIL import Image
@@ -53,7 +53,9 @@ def componenti():
 
 def main(cartella):
     comp = componenti()
-    z = zipfile.ZipFile(os.path.join(PKG, "MiniSport_ALL_Images.zip"))
+    bl = open(os.path.join(PKG, "MiniSport_pezzi.bin"), "rb").read()      # "MSP1", first id, count, (offset, size)...
+    primo, n = struct.unpack("<II", bl[4:12])
+    pezzi = {primo + i: struct.unpack("<II", bl[12 + 8 * i:20 + 8 * i]) for i in range(n)}
     cache = {}
     usciti = []
     for txt in sorted(glob.glob(os.path.join(cartella, "*.txt"))):
@@ -81,9 +83,10 @@ def main(cartella):
                 pic = Image.open(img[mod]).convert("RGBA")
             elif mod in ids:
                 if ids[mod] not in cache:
-                    try:
-                        cache[ids[mod]] = Image.open(io.BytesIO(z.read(f"{ids[mod]}.png"))).convert("RGBA")
-                    except KeyError:
+                    if ids[mod] in pezzi:
+                        o, s = pezzi[ids[mod]]
+                        cache[ids[mod]] = Image.open(io.BytesIO(bl[o:o + s])).convert("RGBA")
+                    else:
                         cache[ids[mod]] = None
                 pic = cache[ids[mod]]
                 if pic is None:
@@ -98,7 +101,7 @@ def main(cartella):
         tela.convert("RGB").save(nome)
         usciti.append(nome)
         if mancanti:
-            print(f"{os.path.basename(txt)}: {mancanti} picture ids NOT in the zip")
+            print(f"{os.path.basename(txt)}: {mancanti} picture ids NOT in MiniSport_pezzi.bin")
     # sheet with everything
     cols = 2
     righe = (len(usciti) + cols - 1) // cols

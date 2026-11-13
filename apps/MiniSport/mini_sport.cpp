@@ -2,19 +2,22 @@
 // (0-100, 0-50, 80-120, braking 100-0), engine gauges. No phone, no network: car data from the head unit (CDS),
 // pictures installed with the plugin.
 //
-// How things move on the screen (what SportTest t1 showed in the car):
-//   - every moving part is a picture of MiniSport_ALL_Images.zip switched by its id (updateModel + ImageID):
-//     LEDs and segments on/off, digits, bars and dial fills in steps, labels;
+// How things move on the screen (what SportTest t1 and the s1 test of 13/11 showed in the car):
+//   - every moving part is a small picture sent to its component (updateModel + Image), the way the page
+//     backgrounds show in the car: LEDs and segments on/off, digits, bars and dial fills in steps, labels. The
+//     pictures are in MiniSport_pezzi.bin, read once at the start (the 801-picture zip of s1 was not loaded by the
+//     HMI: no digit, no icon); MiniSport_ALL_Images.zip holds only the icon of the list;
 //   - the G-meter dot and the centring of numbers move a picture (setProperty x/y);
 //   - showing/hiding and changing the width of a picture (setProperty 3 / 9) did nothing in the car: not used.
-// The page backgrounds (bg_<page>_<theme>.png, transparent, about 150-200 KB) are sent as pictures only when a
-// page is chosen in the menu or the theme changes. Only the page chosen last in the menu is updated.
-// Theme: MID/GREEN = blue accents, SPORT = red accents, from the car's driving mode (CDS driving.mode: 4 = MID,
-// 3 = SPORT seen in the car). The SPORT values can be changed with /opt/aa/minisport.sport ("3" or "3 5").
+// The page backgrounds (bg_<page>_<theme>.png and bg_menu_<theme>.png, 256 colours, 30-70 KB) are sent as pictures
+// at the start and when the theme changes (all of them). The moving pictures: only the page chosen last in the menu.
+// Theme: MID/GREEN = blue accents, SPORT = red accents, from the car's driving mode (CDS driving.mode, seen in the
+// car 13/11: 3 = MID, the mode at every start; 4 = SPORT). GREEN has no colour of its own on the head unit: MID.
+// The SPORT values can be changed with /opt/aa/minisport.sport ("4" or "4 5").
 //
 // Files:
 //   /opt/aa/minisport.disable        exists: the plugin stays off
-//   /opt/aa/minisport.sport          optional: driving.mode values that mean SPORT (default 3)
+//   /opt/aa/minisport.sport          optional: driving.mode values that mean SPORT (default 4)
 //   /dev/shmem/MiniSport.avvii       starts that did not reach 30 s; at 3 the plugin stays off (RAM)
 //   /dev/shmem/MiniSport.demo        exists: demo values (engine off, to check the pages parked)
 //   /dev/shmem/MiniSport.tema        optional "0" (MID) or "1" (SPORT): forces the theme
@@ -25,6 +28,7 @@
 
 #define NOME_PLUGIN "MiniSport"
 #define VERSIONE MS_VERSIONE
+#define BUILD "13/11 b: pictures from MiniSport_pezzi.bin, unique ids, menu action objects, SPORT = 4"   // the version is decided by the owner: this only tells the builds apart
 
 namespace {
 
@@ -208,12 +212,65 @@ const int kSconosciuta = -99999;
 u32 g_idMostrato[kNumPezzi];
 int g_xMostrato[kNumPezzi], g_yMostrato[kNumPezzi];
 
+// MiniSport_pezzi.bin in memory: "MSP1", first id, count, (offset, size) of every picture, the PNGs
+const unsigned char* g_pezzi = 0;
+u32 g_pezziLen = 0, g_pezziPrimo = 0, g_pezziN = 0;
+
+void caricaPezzi() {
+    char path[192];
+    snprintf(path, sizeof(path), "%s/%s_pezzi.bin", kDirPlugin, NOME_PLUGIN);
+    u32 inizio = adessoMs();
+    int fd = open(path, O_RDONLY_Q);
+    if (fd < 0) { scriviLog("pictures: MISSING (cannot open %s): nothing will move", path); return; }
+    const u32 cap = 16u * 1024 * 1024;
+    unsigned char* b = (unsigned char*)malloc(cap);
+    if (!b) { close(fd); scriviLog("pictures: no memory for %u bytes", cap); return; }
+    u32 tot = 0;
+    for (;;) {
+        if (tot == cap) { close(fd); free(b); scriviLog("pictures: %s bigger than %u bytes", path, cap); return; }
+        ssize_t_q r = read(fd, b + tot, cap - tot);
+        if (r <= 0) break;
+        tot += (u32)r;
+    }
+    close(fd);
+    u32 primo = 0, n = 0;
+    if (tot >= 12) { memcpy(&primo, b + 4, 4); memcpy(&n, b + 8, 4); }
+    if (tot < 12 || strncmp((const char*)b, "MSP1", 4) != 0 || n == 0 || n > tot / 8 || 12 + 8 * n > tot) {
+        free(b);
+        scriviLog("pictures: %s is not a pictures file (%u bytes)", path, tot);
+        return;
+    }
+    for (u32 i = 0; i < n; ++i) {
+        u32 o, s;
+        memcpy(&o, b + 12 + 8 * i, 4);
+        memcpy(&s, b + 16 + 8 * i, 4);
+        if (o < 12 + 8 * n || s == 0 || o > tot || s > tot - o) {
+            free(b);
+            scriviLog("pictures: entry %u of %s out of the file (offset %u size %u, file %u)", i, path, o, s, tot);
+            return;
+        }
+    }
+    g_pezzi = b; g_pezziLen = tot; g_pezziPrimo = primo; g_pezziN = n;
+    scriviLog("pictures: %u (ids %u-%u), %u bytes read in %u ms", n, primo, primo + n - 1, tot, adessoMs() - inizio);
+}
+
+u32 g_idSconosciuti = 0;
+
 void metti(u32 pezzo, u32 id) {
     if (pezzo >= kNumPezzi || g_idMostrato[pezzo] == id) return;
-    unsigned char spazio[128] __attribute__((aligned(8)));
+    if (!g_pezzi || id < g_pezziPrimo || id - g_pezziPrimo >= g_pezziN) {
+        if (g_pezzi && g_idSconosciuti++ < 5) scriviLog("picture id %u unknown (piece %u)", id, pezzo);
+        return;
+    }
+    u32 i = id - g_pezziPrimo, o, s;
+    memcpy(&o, g_pezzi + 12 + 8 * i, 4);
+    memcpy(&s, g_pezzi + 16 + 8 * i, 4);
+    unsigned char spazio[64] __attribute__((aligned(8)));
     memset(spazio, 0, sizeof(spazio));
-    bmw::ImageID* im = new (spazio) bmw::ImageID(id);
-    g_app->updateModel(kPezzi[pezzo].modello, *im);
+    bmw::Image* img = new (spazio) bmw::Image(g_pezzi + o, s);
+    g_app->updateModel(kPezzi[pezzo].modello, *img);
+    reinterpret_cast<bmw::BufferStream*>(spazio + 4)->~BufferStream();
+    reinterpret_cast<bmw::BasicString<char>*>(spazio)->~BasicString();
     g_idMostrato[pezzo] = id;
     ++g_statId;
 }
@@ -410,7 +467,7 @@ Auto demoAuto(u32 ora) {
 }
 
 // ---- theme ---------------------------------------------------------------------------------------------------
-int g_modiSport[8] = {3};
+int g_modiSport[8] = {4};
 int g_nModiSport = 1;
 int g_temaForzato = -1;
 int g_tema = 0;                        // 0 = MID/GREEN, 1 = SPORT
@@ -426,7 +483,7 @@ int temaDa(const Auto& a) {
 const char* const kNomePag[PAG_N] = {"giri", "gmeter", "crono", "motore"};
 const u32 kModSfondoPag[PAG_N] = {kModSfondo110, kModSfondo111, kModSfondo112, kModSfondo113};
 int g_sfondoPag[PAG_N] = {-1, -1, -1, -1};      // theme of the background sent, -1 = none
-int g_sfondoMenu = -1;                           // 10 * theme + choice
+int g_sfondoMenu = -1;                           // theme of the menu background sent, -1 = none
 
 void sfondoPagina(int pag) {
     if (g_sfondoPag[pag] == g_tema) return;
@@ -435,12 +492,11 @@ void sfondoPagina(int pag) {
     if (mostraFile(kModSfondoPag[pag], nome)) g_sfondoPag[pag] = g_tema;
 }
 
-void sfondoMenu(int scelta) {
-    int k = 10 * g_tema + scelta;
-    if (g_sfondoMenu == k) return;
+void sfondoMenu() {
+    if (g_sfondoMenu == g_tema) return;
     char nome[40];
-    snprintf(nome, sizeof(nome), "bg_menu%d_%s.png", scelta, g_tema ? "sport" : "mid");
-    if (mostraFile(kModSfondo100, nome)) g_sfondoMenu = k;
+    snprintf(nome, sizeof(nome), "bg_menu_%s.png", g_tema ? "sport" : "mid");
+    if (mostraFile(kModSfondo100, nome)) g_sfondoMenu = g_tema;
 }
 
 // ---- digits --------------------------------------------------------------------------------------------------
@@ -778,15 +834,19 @@ void scegli(int pag) {
     if (pag < 0 || pag >= PAG_N) return;
     if (pag != g_pagina) scriviLog("menu: %s", kNomePag[pag]);
     g_pagina = pag;
-    sfondoMenu(pag);
+    sfondoMenu();
     sfondoPagina(pag);
     dimenticaPagina(pag);              // everything of the page is sent again (it may have been shown before)
     g_giriLayout = -1;
     for (int i = 0; i < 4; ++i) g_motCifre[i] = -1;
 }
 
+// the object of the delegate is the action id (20-23), never 0: in s1 the object of "Giri e cambiata" was 0 and its
+// selectAction never reached the plugin in the car (13/11), while the other three (objects 1-3) did
 bool sceltaMenu(void* oggetto, const bmw::Parcel&) {
-    scegli((int)(unsigned long)oggetto);
+    u32 azione = (u32)(unsigned long)oggetto;
+    if (azione < kAzioneScelta0 || azione >= kAzioneScelta0 + PAG_N) { scriviLog("menu: action %u unknown", azione); return true; }
+    scegli((int)(azione - kAzioneScelta0));
     return true;
 }
 
@@ -839,7 +899,8 @@ void giroRun(void*) {
     if (tema != g_tema) {
         scriviLog("theme %s", tema ? "SPORT" : "MID/GREEN");
         g_tema = tema;
-        sfondoMenu(g_sfondoMenu < 0 ? 0 : g_sfondoMenu % 10);
+        sfondoMenu();
+        for (int p = 0; p < PAG_N; ++p) sfondoPagina(p);   // every page: the HMI keeps what each state got last
         scegli(g_pagina);
     }
     seguiG(a, ora);
@@ -877,7 +938,7 @@ void avviaGiro(bmw::PluginApp* app) {
 bool appOnInit(bmw::PluginApp* self) {
     for (u32 i = 0; i < PAG_N; ++i) {
         bmw::DelegatoAzione d;
-        d.oggetto = (void*)(unsigned long)i;
+        d.oggetto = (void*)(unsigned long)(kAzioneScelta0 + i);
         d.funzione = &sceltaMenu;
         self->addHandler(kAzioneScelta0 + i, d);
     }
@@ -897,6 +958,8 @@ bool appOnInit(bmw::PluginApp* self) {
     for (int k = 0; k < 3; ++k) { g_scia[k][0] = -1000; g_scia[k][1] = -1000; }
     controllaFile(g_inizio);
     g_tema = temaDa(g_demo ? demoAuto(g_inizio) : g_auto);
+    caricaPezzi();
+    for (int p = 0; p < PAG_N; ++p) sfondoPagina(p);
     scegli(PAG_GIRI);
     avviaGiro(self);
     return ok;
@@ -914,7 +977,7 @@ void appOnFinalize(bmw::PluginApp* self) {
 }
 
 bmw::PluginApp* creaApp(bmw::IDispatcher& dispatcher, const char* name, const bmw::Bundle& params, const bmw::Bundle& config) {
-    scriviLog("create(%s) %s %s", name ? name : "(null)", NOME_PLUGIN, VERSIONE);
+    scriviLog("create(%s) %s %s (build %s)", name ? name : "(null)", NOME_PLUGIN, VERSIONE, BUILD);
     if (access(kDisable, F_OK_Q) == 0) { scriviLog("off: %s exists", kDisable); return 0; }
     int avvii = 0;
     leggiNumeri(kAvvii, &avvii, 1);

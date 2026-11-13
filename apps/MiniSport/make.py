@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """
 Builds MINI Sport for the USB stick and the layout shared with the C++ plugin:
-  usb/nbt-evo-apps/pacchetti/MiniSport/  MiniSport.xml, .manifest, _ALL_Texts.zip, _ALL_Images.zip (small moving pictures,
-                               switched by id), page backgrounds bg_<page>_<theme>.png (sent as pictures, rarely)
+  usb/nbt-evo-apps/pacchetti/MiniSport/  MiniSport.xml, .manifest, _ALL_Texts.zip, _ALL_Images.zip (ONLY the icon of the
+                               list), MiniSport_pezzi.bin (all the small moving pictures, sent by the plugin as pictures),
+                               page backgrounds bg_<page>_<theme>.png and bg_menu_<theme>.png (sent as pictures, rarely)
   apps/MiniSport/layout.h   ids of components, models and pictures, positions
 What the car showed in SportTest t1 decides how things move:
   - moving a picture (setProperty x/y): works (G-meter dot)       -> G dot, centring of numbers
-  - switching a picture of the zip by id (ImageID): works          -> LEDs, segments, digits, bars, labels
+  - switching a picture of the zip by id (ImageID): works with a 12-picture zip (SportTest); with the 801-picture,
+    5 MB zip of s1 (13/11) the HMI loaded nothing (no icon, no digit): the moving pictures are now sent as pictures
+    (updateModel + Image, the way the page backgrounds already showed in the car) from MiniSport_pezzi.bin
   - changing the width of a picture (setProperty 9): does NOT work -> bars are pictures in 21 steps
 Usage: python3 apps/MiniSport/make.py      (Pillow, numpy, Inter font; ~1-3 minutes)
 """
 import io
 import math
 import os
+import struct
 import sys
 import zipfile
 from multiprocessing import Pool
@@ -29,7 +33,7 @@ OUT = os.path.join(QUI, "..", "..", "usb", "nbt-evo-apps", "pacchetti", NOME)
 HEADER = os.path.join(QUI, "layout.h")
 TEMI = ("mid", "sport")
 ID_ICONA = 64200
-ID_PRIMO = 64201                               # 64201..65499: pictures of the zip
+ID_PRIMO = 64201                               # 64201..65499: pictures of MiniSport_pezzi.bin (ids of the plugin only)
 FOCUS = 32760
 CONNETTORE = 218
 
@@ -349,20 +353,19 @@ VOCI_MENU = [("giri", "Giri e cambiata", "shift light"), ("g", "G-meter", "accel
              ("crono", "Cronometri", "0-100 e frenata"), ("motore", "Motore", "temperature e coppia")]
 
 
-def sfondo_menu(tema, scelta):
+def sfondo_menu(tema):
+    """the menu page; no highlight of its own: the selection is the native one of the HMI (the drawn one did not
+    follow the knob in the car, 13/11)"""
     T = g.TEMI[tema]
     dst = g.vuoto()
     g.testata(dst, "MINI Sport", tema)
     for i, (ic, nome, sotto) in enumerate(VOCI_MENU):
         x = MENU_X0 + i * MENU_W
         cx, cy = x + MENU_W / 2, 180
-        scelto = i == scelta
-        if scelto:
-            g.colonna_scelta(dst, x + 34, x + MENU_W - 34)
         g.immagine(dst, os.path.join(ICONE, f"{ICONE_MENU[ic]}.png"), cx, cy, LATO_ICONA_MENU,
                    tinta=T["acc"] if tema == "mid" else None)          # icons drawn red: blue in MID/GREEN
         g.testo(dst, (cx, 300), nome.upper(), 19, g.BIANCO, 1.0, "Medium", "mm", track=0.8)
-        g.testo(dst, (cx, 334), sotto, 19, T["acc2"] if scelto else g.BIANCO, 1.0 if scelto else 0.80, "Regular", "mm")
+        g.testo(dst, (cx, 334), sotto, 19, g.BIANCO, 0.80, "Regular", "mm")
         g.sopra(dst, g.colore(g.BIANCO, g.liscio(g.d_rrect(cx - 22, 367, cx + 22, 369, 1)) * 0.85))
     return dst
 
@@ -608,11 +611,11 @@ def lavoro_sfondo(arg):
     tipo, tema, scelta = arg
     definisci_una_volta()
     g.pagina()
-    lay = sfondo_menu(tema, scelta) if tipo == "menu" else SFONDI[tipo](tema)
+    lay = sfondo_menu(tema) if tipo == "menu" else SFONDI[tipo](tema)
     # copyright, almost invisible: bottom right, under everything of every screen (the menu highlight ends at y 430);
     # the car photos show the page visible down to about y 470
     g.testo(lay, (1136, 456), "© DeathWalkeR", 12, alfa=0.14, peso="Medium", anchor="rb", disp=False, ombra_t=False)
-    nome = f"bg_menu{scelta}_{tema}.png" if tipo == "menu" else f"bg_{tipo}_{tema}.png"
+    nome = f"bg_menu_{tema}.png" if tipo == "menu" else f"bg_{tipo}_{tema}.png"
     # 256 colours, the iDrive Plus algorithm (format of its pages, working in the car): the pages with the error
     # diffusion extended to the translucent dial faces, the menu also on the transparency (fade of the highlight column)
     if tipo == "menu":
@@ -643,10 +646,12 @@ STATI = [(110, "Giri e cambiata"), (111, "G-meter"), (112, "Cronometri"), (113, 
 
 
 def numera():
-    """component and model ids: models 101.., components 1001.. in the order of COMPONENTI"""
+    """component and model ids in the order of COMPONENTI: components 1001.., models 2001..
+    Every id of the XML (actions, models, states, components) is used ONCE: in s1 the models 101.. took the ids of
+    the states 110-113 and of the menu buttons 200-203 (13/11)"""
     out = []
     for i, (stato, cnome, set_nome, x, y, w, h) in enumerate(COMPONENTI):
-        out.append(dict(stato=stato, nome=cnome, set=set_nome, x=x, y=y, w=w, h=h, modello=101 + i, comp=1001 + i))
+        out.append(dict(stato=stato, nome=cnome, set=set_nome, x=x, y=y, w=w, h=h, modello=2001 + i, comp=1001 + i))
     return out
 
 
@@ -793,7 +798,7 @@ def header(comp):
         p(f'    P_{cname(c["nome"])} = {i},')
     p("};")
     p("")
-    p("// picture ids of the zip: ID_<SET>[theme 0 = MID/GREEN, 1 = SPORT][frame]")
+    p("// picture ids (MiniSport_pezzi.bin): ID_<SET>[theme 0 = MID/GREEN, 1 = SPORT][frame]")
     for nome, s in SETS.items():
         p(f"const u32 ID_{cname(nome)}[2][{len(s.frames)}] = {{   // {', '.join(s.frames)}")
         for t in range(2):
@@ -864,7 +869,7 @@ def main():
     for nome, s in SETS.items():
         for tema in (TEMI if s.per_tema else ("mid",)):
             lavori.append((nome, tema))
-    sfondi = [(t, tema, 0) for t in SFONDI for tema in TEMI] + [("menu", tema, k) for tema in TEMI for k in range(4)]
+    sfondi = [(t, tema, 0) for t in SFONDI for tema in TEMI] + [("menu", tema, 0) for tema in TEMI]
     with Pool() as pool:
         ris_set = pool.map(lavoro_set, lavori)
         ris_sf = pool.map(lavoro_sfondo, sfondi)
@@ -872,23 +877,41 @@ def main():
     for nome, tema, frames in ris_set:
         png[(nome, tema)] = frames
     prossimo = ID_PRIMO
+    pezzi = []                                 # PNG of the ids ID_PRIMO, ID_PRIMO + 1, ...
+    for nome, s in SETS.items():
+        s.ids = [[0] * len(s.frames), [0] * len(s.frames)]
+        for t, tema in enumerate(TEMI):
+            if not s.per_tema and t == 1:
+                s.ids[1] = list(s.ids[0])
+                continue
+            for f, dati in enumerate(png[(nome, tema)]):
+                s.ids[t][f] = prossimo
+                pezzi.append(dati)
+                prossimo += 1
+    if prossimo > 65500:
+        raise SystemExit(f"too many pictures: last id {prossimo}")
+    # the zip of the HMI: only the icon of the list (a 1-picture zip, as Lettura dati, whose icon shows in the car)
     zip_b = io.BytesIO()
     with zipfile.ZipFile(zip_b, "w", zipfile.ZIP_STORED) as z:
         z.writestr(f"{ID_ICONA}.png", icona())
-        for nome, s in SETS.items():
-            s.ids = [[0] * len(s.frames), [0] * len(s.frames)]
-            for t, tema in enumerate(TEMI):
-                if not s.per_tema and t == 1:
-                    s.ids[1] = list(s.ids[0])
-                    continue
-                for f, dati in enumerate(png[(nome, tema)]):
-                    s.ids[t][f] = prossimo
-                    z.writestr(f"{prossimo}.png", dati)
-                    prossimo += 1
-    if prossimo > 65500:
-        raise SystemExit(f"too many pictures: last id {prossimo}")
     with open(os.path.join(OUT, f"{NOME}_ALL_Images.zip"), "wb") as f:
         f.write(zip_b.getvalue())
+    # MiniSport_pezzi.bin: "MSP1", first id, count, then (offset, size) of every picture from the start of the
+    # file, then the PNGs; little endian u32 (ARM)
+    testa = 12 + 8 * len(pezzi)
+    indice, pos = [], testa
+    for d in pezzi:
+        indice.append((pos, len(d)))
+        pos += len(d)
+    with open(os.path.join(OUT, f"{NOME}_pezzi.bin"), "wb") as f:
+        f.write(b"MSP1" + struct.pack("<II", ID_PRIMO, len(pezzi)))
+        for o, n in indice:
+            f.write(struct.pack("<II", o, n))
+        for d in pezzi:
+            f.write(d)
+    for vecchio in os.listdir(OUT):            # menu backgrounds of s1 (one per highlighted entry): not used now
+        if vecchio.startswith("bg_menu") and vecchio[7:8].isdigit():
+            os.remove(os.path.join(OUT, vecchio))
     with open(os.path.join(OUT, f"{NOME}_ALL_Texts.zip"), "wb") as f:
         f.write(testi_zip())
     for nome, dati in ris_sf:
@@ -902,8 +925,8 @@ def main():
     with open(HEADER, "w", encoding="utf-8") as f:
         f.write(header(comp))
     grandi = max(len(d) for _, d in ris_sf)
-    print(f"ok: {len(comp)} components, pictures in the zip {prossimo - ID_PRIMO + 1} (ids {ID_ICONA}..{prossimo - 1}), "
-          f"zip {len(zip_b.getvalue()) // 1024} KB, largest background {grandi // 1024} KB")
+    print(f"ok: {len(comp)} components, zip {len(zip_b.getvalue())} bytes (icon {ID_ICONA}), pictures in "
+          f"{NOME}_pezzi.bin {len(pezzi)} (ids {ID_PRIMO}..{prossimo - 1}, {pos // 1024} KB), largest background {grandi // 1024} KB")
 
 
 if __name__ == "__main__":

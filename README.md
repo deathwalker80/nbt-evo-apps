@@ -12,7 +12,7 @@ be for every car or for one brand (MINI, BMW, Supra): you choose your car once.
 
 | App | Package | For | Status |
 |---|---|---|---|
-| **MINI Sport**: revs and shift light, G-meter, timers (0-100, 0-50, 80-120, braking 100-0), engine gauges | `MiniSport` | MINI | s1: first car test (12/11) failed - menu backgrounds and picture zip - fixed, to try again |
+| **MINI Sport**: revs and shift light, G-meter, timers (0-100, 0-50, 80-120, braking 100-0), engine gauges | `MiniSport` | MINI | s1: car tests 12/11 and 13/11 failed (no digits, no icon, theme inverted, Giri page not following); build 13/11 b sends the moving pictures as pictures, to try |
 | **App da USB**: the packages of the stick from the iDrive menu, with the knob | `AppUsb` | all | t0 = diagnosis only, installs nothing |
 | **Lettura dati**: TEST, reads only - which car data (CDS) a plugin gets, and the graphics libraries of the HMI | `LetturaDati` | all | t0 |
 | SportTest: test plugin of the car data and of the HMI calls | `SportTest` | all | t1, tried in the car (results below); replaced by MINI Sport |
