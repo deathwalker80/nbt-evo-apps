@@ -12,6 +12,7 @@ extern "C" void bsDistruggi(void*) {}
 extern "C" void parcelDistruggi(void*) {}
 extern "C" void* dlsym(void*, const char*) { return 0; }     // QNX RTLD_DEFAULT (-2) means nothing on Linux
 extern "C" int fwrite(const void*, u32, u32, void*);
+extern "C" char* strcpy(char*, const char*);
 
 // time of the test, moved by the test itself
 u32 g_finto = 100000;
@@ -38,29 +39,17 @@ PluginApp::PluginApp(IDispatcher&, BasicString<char>, u32, u32, RHMIInterfaceVer
 void PluginApp::post(Runnable*, u32) {}
 
 const u32 kMaxId = 4000;
-u32 g_idDi[kMaxId];              // model -> picture id of MiniSport_pezzi.bin (0 = none)
+u32 g_idDi[kMaxId];              // model -> picture id of MiniSport_ALL_Images.zip (0 = none)
 u32 g_imgDi[kMaxId];             // model -> number of the picture file sent (0 = none)
 int g_x[kMaxId], g_y[kMaxId];    // component -> position set (-1000000 = as in the XML)
 u32 g_nImg = 0, g_nId = 0, g_nProp = 0, g_nTesti = 0;
 const char* g_dirOut = "test/out";
 
 void PluginApp::updateModel(u32, const char*) { ++g_nTesti; }
-u32 idDelPezzo(const unsigned char* c, u32 n) {   // the id of MiniSport_pezzi.bin with exactly these bytes, 0 = none
-    if (!g_pezzi) return 0;
-    for (u32 i = 0; i < g_pezziN; ++i) {
-        u32 o, s;
-        memcpy(&o, g_pezzi + 12 + 8 * i, 4);
-        memcpy(&s, g_pezzi + 16 + 8 * i, 4);
-        if (s == n && memcmp(g_pezzi + o, c, n) == 0) return g_pezziPrimo + i;
-    }
-    return 0;
-}
 void PluginApp::updateModel(u32 id, const Image& im) {
     unsigned char* c; u32 n;
     memcpy(&c, &im, sizeof(c));
     memcpy(&n, (const unsigned char*)&im + 8, 4);
-    u32 pezzo = idDelPezzo(c, n);
-    if (pezzo) { free(c); if (id < kMaxId) { g_idDi[id] = pezzo; g_imgDi[id] = 0; } ++g_nId; return; }
     ++g_nImg;
     char path[160];
     snprintf(path, sizeof(path), "%s/img_%u.png", g_dirOut, g_nImg);
@@ -69,7 +58,11 @@ void PluginApp::updateModel(u32 id, const Image& im) {
     free(c);
     if (id < kMaxId) { g_imgDi[id] = g_nImg; g_idDi[id] = 0; }
 }
-void PluginApp::updateModel(u32 id, const ImageID& im) { u32 n; memcpy(&n, &im, 4); if (id < kMaxId) g_idDi[id] = n; ++g_nId; }
+void PluginApp::updateModel(u32 id, const ImageID& im) {
+    u32 n; memcpy(&n, &im, 4);
+    if (id < kMaxId) { g_idDi[id] = n; g_imgDi[id] = 0; }
+    ++g_nId;
+}
 void PluginApp::setProperty(u32 c, u32 p, const Parcel& v) {
     ++g_nProp;
     const unsigned char* s = (const unsigned char*)&v;
@@ -94,7 +87,7 @@ void cds(u32 i, const char* json) {
     bmw::g_cds[i].funzione(bmw::g_cds[i].oggetto, *(const bmw::BasicString<u16>*)&p);
 }
 
-void avanti(u32 ms) {                       // ticks of 50 ms
+void avanti(u32 ms) {                       // ticks of kTickMs
     for (u32 t = 0; t < ms; t += kTickMs) { g_finto += kTickMs; giroRun(0); }
 }
 
@@ -146,6 +139,18 @@ int main() {
     for (u32 m = 0; m < bmw::kMaxId; ++m) bmw::g_x[m] = bmw::g_y[m] = -1000000;
     static unsigned char mem[0x200];
     g_app = (bmw::PluginApp*)mem;
+    {   // start count on the stick: the path is taken from the log path found on the stick
+        char out[192];
+        g_ultimaRicerca = time(0);
+        strcpy(g_logChiavetta, "/mnt/umass0/nbt-evo-apps/MiniSport.log");
+        bool a = avviiSuChiavetta(out, sizeof(out));
+        printf("== stick count, folder nbt-evo-apps: %d %s\n", (int)a, a ? out : "-");
+        strcpy(g_logChiavetta, "/mnt/umass0/MiniSport.log");
+        bool b = avviiSuChiavetta(out, sizeof(out));
+        printf("== stick count, stick without the folder: %d (expected 0)\n", (int)b);
+        g_logChiavetta[0] = 0;
+        g_ultimaRicerca = 0;
+    }
     printf("== onInit (the fake framework has no vtable: creaApp is not run here)\n");
     appOnInit(g_app);
     avanti(2000);

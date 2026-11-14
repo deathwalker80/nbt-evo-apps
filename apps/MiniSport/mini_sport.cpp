@@ -2,13 +2,16 @@
 // (0-100, 0-50, 80-120, braking 100-0), engine gauges. No phone, no network: car data from the head unit (CDS),
 // pictures installed with the plugin.
 //
-// How things move on the screen (what SportTest t1 and the s1 test of 13/11 showed in the car):
-//   - every moving part is a small picture sent to its component (updateModel + Image), the way the page
-//     backgrounds show in the car: LEDs and segments on/off, digits, bars and dial fills in steps, labels. The
-//     pictures are in MiniSport_pezzi.bin, read once at the start (the 801-picture zip of s1 was not loaded by the
-//     HMI: no digit, no icon); MiniSport_ALL_Images.zip holds only the icon of the list;
+// How things move on the screen (what SportTest t1, the ProvaZip tests and the s1 test of 13/11 showed in the car):
+//   - every moving part is a picture of MiniSport_ALL_Images.zip chosen by id (updateModel + ImageID, as the digits of
+//     SportTest t1): LEDs and segments on/off, digits, bars in steps, labels. The zip is kept inside what loaded in the
+//     car (ProvaZip B: 400 pictures, 94 KB, stored, RGBA PNG; the 801-picture 5 MB zip of s1 did not load); make.py
+//     refuses to build a bigger one. The icon of the list is the LAST picture of the zip: if it shows, the HMI loaded
+//     the whole zip;
 //   - the G-meter dot and the centring of numbers move a picture (setProperty x/y);
-//   - showing/hiding and changing the width of a picture (setProperty 3 / 9) did nothing in the car: not used.
+//   - showing/hiding and changing the width of a picture (setProperty 3 / 9) did nothing in the car: not used;
+//   - a picture or a position is sent only when it changes, at most kMaxAggiornamenti per tick (the rest goes on the
+//     next tick), 10 ticks per second.
 // The page backgrounds (bg_<page>_<theme>.png and bg_menu_<theme>.png, 256 colours, 30-70 KB) are sent as pictures
 // at the start and when the theme changes (all of them). The moving pictures: only the page chosen last in the menu.
 // Theme: MID/GREEN = blue accents, SPORT = red accents, from the car's driving mode (CDS driving.mode, seen in the
@@ -18,7 +21,10 @@
 // Files:
 //   /opt/aa/minisport.disable        exists: the plugin stays off
 //   /opt/aa/minisport.sport          optional: driving.mode values that mean SPORT (default 4)
-//   /dev/shmem/MiniSport.avvii       starts that did not reach 30 s; at 3 the plugin stays off (RAM)
+//   /dev/shmem/MiniSport.avvii       starts that did not reach 30 s; at 3 the plugin stays off (RAM: lost when the
+//                                    head unit is switched off, kept when only the HMI restarts)
+//   <stick>/nbt-evo-apps/MiniSport.avvii   the same count on the USB stick (kept across a full restart, when the stick
+//                                    is in and mounted when the plugin starts); the higher of the two counts
 //   /dev/shmem/MiniSport.demo        exists: demo values (engine off, to check the pages parked)
 //   /dev/shmem/MiniSport.tema        optional "0" (MID) or "1" (SPORT): forces the theme
 //   /dev/shmem/MiniSport.record      best times of the timers, kept until the head unit is switched off
@@ -28,7 +34,7 @@
 
 #define NOME_PLUGIN "MiniSport"
 #define VERSIONE MS_VERSIONE
-#define BUILD "13/11 b: pictures from MiniSport_pezzi.bin, unique ids, menu action objects, SPORT = 4"   // the version is decided by the owner: this only tells the builds apart
+#define BUILD "14/11 c: pictures by id from a 90 KB zip, 10 ticks/s, capped updates, start count also on the stick"   // the version is decided by the owner: this only tells the builds apart
 
 namespace {
 
@@ -41,12 +47,13 @@ const char* const kTemaForz  = "/dev/shmem/" NOME_PLUGIN ".tema";
 const char* const kRecord    = "/dev/shmem/" NOME_PLUGIN ".record";
 const char* const kLogShmem  = "/dev/shmem/" NOME_PLUGIN ".log";
 const char* const kDirPlugin = "/opt/hmi/ID5/data/ro/Plugins/" NOME_PLUGIN;
-const u32 kTickMs      = 50;           // 20 updates per second (the car managed ~19 of 25 asked in SportTest)
+const u32 kTickMs      = 100;          // 10 ticks per second (SportTest ran 25 asked, ~19 done)
+const u32 kMaxAggiornamenti = 40;      // pictures + positions sent in one tick at most (a page needs up to ~60)
 const u32 kSecondiSano = 30;
 const u32 kMaxAvvii    = 3;
 const u32 kOgniStatMs  = 30000;
 const u32 kOgniFileMs  = 5000;         // demo / theme files checked every 5 s
-const u32 kGiroCds     = 30;           // CDS registered ~1.5 s after onInit (as NBT-AAD), in ticks
+const u32 kGiroCds     = 15;           // CDS registered ~1.5 s after onInit (as NBT-AAD), in ticks
 enum { kSlotOnError = 21, kSlotOnInit = 22, kSlotOnFinalize = 23, kVtblSlots = 34 };
 const u32 kAzioneScelta0 = 20;         // selectAction of the 4 menu buttons: raAction 20..23
 const u32 kModTestoPulsante0 = 41;     // text models of the 4 menu buttons: a space, the names are in the background
@@ -74,6 +81,12 @@ const char* nomeDirent(void* ent) {
 }
 
 char g_logChiavetta[192] = "";
+
+const char* strrchr_q(const char* s, char c) {        // last c in s (no strrchr declared in bmw_plugin.h)
+    const char* r = 0;
+    for (; *s; ++s) if (*s == c) r = s;
+    return r;
+}
 time_t_q g_ultimaRicerca = 0;
 
 void cercaChiavetta() {
@@ -93,6 +106,18 @@ void cercaChiavetta() {
         break;
     }
     closedir(d);
+}
+
+// the start count on the stick: <stick>/nbt-evo-apps/MiniSport.avvii, only if that folder exists (false: no stick)
+bool avviiSuChiavetta(char* out, u32 n) {
+    cercaChiavetta();
+    const char* fine = g_logChiavetta[0] ? strrchr_q(g_logChiavetta, '/') : 0;
+    if (!fine) return false;
+    u32 lc = (u32)(fine - g_logChiavetta);
+    if (lc < 14 || strncmp(fine - 13, "/nbt-evo-apps", 13) != 0 || lc + 1 + strlen(NOME_PLUGIN) + 7 >= n) return false;
+    memcpy(out, g_logChiavetta, lc);
+    snprintf(out + lc, n - lc, "/%s.avvii", NOME_PLUGIN);
+    return true;
 }
 
 void scriviRiga(const char* path, const char* riga) {
@@ -198,6 +223,8 @@ bool mostraFile(u32 modello, const char* nome) {
     return true;
 }
 
+u32 g_aggiornamenti = 0;               // pictures + positions sent in this tick
+
 void proprietaInt(u32 componente, u32 proprieta, int v) {
     unsigned char spazio[256] __attribute__((aligned(8)));
     memset(spazio, 0, sizeof(spazio));
@@ -212,84 +239,41 @@ const int kSconosciuta = -99999;
 u32 g_idMostrato[kNumPezzi];
 int g_xMostrato[kNumPezzi], g_yMostrato[kNumPezzi];
 
-// MiniSport_pezzi.bin in memory: "MSP1", first id, count, (offset, size) of every picture, the PNGs
-const unsigned char* g_pezzi = 0;
-u32 g_pezziLen = 0, g_pezziPrimo = 0, g_pezziN = 0;
-
-void caricaPezzi() {
-    char path[192];
-    snprintf(path, sizeof(path), "%s/%s_pezzi.bin", kDirPlugin, NOME_PLUGIN);
-    u32 inizio = adessoMs();
-    int fd = open(path, O_RDONLY_Q);
-    if (fd < 0) { scriviLog("pictures: MISSING (cannot open %s): nothing will move", path); return; }
-    const u32 cap = 16u * 1024 * 1024;
-    unsigned char* b = (unsigned char*)malloc(cap);
-    if (!b) { close(fd); scriviLog("pictures: no memory for %u bytes", cap); return; }
-    u32 tot = 0;
-    for (;;) {
-        if (tot == cap) { close(fd); free(b); scriviLog("pictures: %s bigger than %u bytes", path, cap); return; }
-        ssize_t_q r = read(fd, b + tot, cap - tot);
-        if (r <= 0) break;
-        tot += (u32)r;
-    }
-    close(fd);
-    u32 primo = 0, n = 0;
-    if (tot >= 12) { memcpy(&primo, b + 4, 4); memcpy(&n, b + 8, 4); }
-    if (tot < 12 || strncmp((const char*)b, "MSP1", 4) != 0 || n == 0 || n > tot / 8 || 12 + 8 * n > tot) {
-        free(b);
-        scriviLog("pictures: %s is not a pictures file (%u bytes)", path, tot);
-        return;
-    }
-    for (u32 i = 0; i < n; ++i) {
-        u32 o, s;
-        memcpy(&o, b + 12 + 8 * i, 4);
-        memcpy(&s, b + 16 + 8 * i, 4);
-        if (o < 12 + 8 * n || s == 0 || o > tot || s > tot - o) {
-            free(b);
-            scriviLog("pictures: entry %u of %s out of the file (offset %u size %u, file %u)", i, path, o, s, tot);
-            return;
-        }
-    }
-    g_pezzi = b; g_pezziLen = tot; g_pezziPrimo = primo; g_pezziN = n;
-    scriviLog("pictures: %u (ids %u-%u), %u bytes read in %u ms", n, primo, primo + n - 1, tot, adessoMs() - inizio);
-}
-
 u32 g_idSconosciuti = 0;
 
 void metti(u32 pezzo, u32 id) {
     if (pezzo >= kNumPezzi || g_idMostrato[pezzo] == id) return;
-    if (!g_pezzi || id < g_pezziPrimo || id - g_pezziPrimo >= g_pezziN) {
-        if (g_pezzi && g_idSconosciuti++ < 5) scriviLog("picture id %u unknown (piece %u)", id, pezzo);
+    if (id < kIdPrimo || id > kIdUltimo) {
+        if (g_idSconosciuti++ < 5) scriviLog("picture id %u unknown (piece %u)", id, pezzo);
         return;
     }
-    u32 i = id - g_pezziPrimo, o, s;
-    memcpy(&o, g_pezzi + 12 + 8 * i, 4);
-    memcpy(&s, g_pezzi + 16 + 8 * i, 4);
-    unsigned char spazio[64] __attribute__((aligned(8)));
+    if (g_aggiornamenti >= kMaxAggiornamenti) return;        // not marked as shown: sent on a next tick
+    ++g_aggiornamenti;
+    unsigned char spazio[128] __attribute__((aligned(8)));      // as SportTest t1, whose ImageID updates worked in the car
     memset(spazio, 0, sizeof(spazio));
-    bmw::Image* img = new (spazio) bmw::Image(g_pezzi + o, s);
+    bmw::ImageID* img = new (spazio) bmw::ImageID(id);
     g_app->updateModel(kPezzi[pezzo].modello, *img);
-    reinterpret_cast<bmw::BufferStream*>(spazio + 4)->~BufferStream();
-    reinterpret_cast<bmw::BasicString<char>*>(spazio)->~BasicString();
     g_idMostrato[pezzo] = id;
     ++g_statId;
 }
 
 void spostaX(u32 pezzo, int x) {
-    if (pezzo >= kNumPezzi || g_xMostrato[pezzo] == x) return;
+    if (pezzo >= kNumPezzi || g_xMostrato[pezzo] == x || g_aggiornamenti >= kMaxAggiornamenti) return;
+    ++g_aggiornamenti;
     proprietaInt(kPezzi[pezzo].comp, kPropX, x);
     g_xMostrato[pezzo] = x;
 }
 
 void spostaY(u32 pezzo, int y) {
-    if (pezzo >= kNumPezzi || g_yMostrato[pezzo] == y) return;
+    if (pezzo >= kNumPezzi || g_yMostrato[pezzo] == y || g_aggiornamenti >= kMaxAggiornamenti) return;
+    ++g_aggiornamenti;
     proprietaInt(kPezzi[pezzo].comp, kPropY, y);
     g_yMostrato[pezzo] = y;
 }
 
 // first and last+1 piece of each page (the enum of layout.h is in page order)
-const u32 kPrimo[PAG_N] = {P_GIRI_SEG0, P_G_PUNTO, P_CR_SEG0, P_MOT_QUAD0};
-const u32 kFine[PAG_N]  = {P_G_PUNTO, P_CR_SEG0, P_MOT_QUAD0, kNumPezzi};
+const u32 kPrimo[PAG_N] = {P_GIRI_SEG0, P_G_PUNTO, P_CR_SEG0, P_MOT_SEG0_0};
+const u32 kFine[PAG_N]  = {P_G_PUNTO, P_CR_SEG0, P_MOT_SEG0_0, kNumPezzi};
 
 void dimenticaPagina(int pag) {
     for (u32 p = kPrimo[pag]; p < kFine[pag]; ++p) {
@@ -559,18 +543,19 @@ void paginaGiri(const Auto& a, u32 ora) {
     metti(P_GIRI_MARCIA, ID_MARCIA[t][fm]);
     // four values with their bars (21 steps)
     int val[4] = {a.haTemp ? a.olio : -1, a.haTemp ? a.acqua : -1, a.haGas ? a.gas : -1, a.haCoppia ? a.coppia : -1};
-    int passo[4] = {limita((val[0] - 50) / 5, 0, 20), limita((val[1] - 40) * 2 / 9, 0, 20), limita(val[2] / 5, 0, 20),
-                    limita(val[3] / 15, 0, 20)};
+    // steps 0..kBarraPassi (8): oil 50-150 °C, water 40-130 °C, throttle 0-100 %, torque 0-300 Nm (constant divisions)
+    int passo[4] = {limita((val[0] - 50) * 2 / 25, 0, kBarraPassi), limita((val[1] - 40) * 4 / 45, 0, kBarraPassi),
+                    limita(val[2] * 2 / 25, 0, kBarraPassi), limita(val[3] * 2 / 75, 0, kBarraPassi)};
     static const u32 primo[4] = {P_GIRI_VAL0_0, P_GIRI_VAL1_0, P_GIRI_VAL2_0, P_GIRI_VAL3_0};
     static const u32 barra[4] = {P_GIRI_BARRA0, P_GIRI_BARRA1, P_GIRI_BARRA2, P_GIRI_BARRA3};
     for (int i = 0; i < 4; ++i) {
         if (val[i] < 0) {
             for (int k = 0; k < 3; ++k) metti(primo[i] + k, ID_C40[t][10]);
-            metti(barra[i], (i < 2 ? ID_BARRA_VERDE[t] : (i == 2 ? ID_BARRA_ACC[t] : ID_BARRA_CALDO[t]))[0]);
+            metti(barra[i], (i < 2 ? ID_BARRA_VERDE[t] : ID_BARRA_ACC[t])[0]);
             continue;
         }
         numeroDestra(primo[i], 3, ID_C40, limita(val[i], 0, 999));
-        const u32* ids = i < 2 ? ID_BARRA_VERDE[t] : (i == 2 ? ID_BARRA_ACC[t] : ID_BARRA_CALDO[t]);
+        const u32* ids = i < 2 ? ID_BARRA_VERDE[t] : ID_BARRA_ACC[t];
         metti(barra[i], ids[passo[i]]);
     }
 }
@@ -640,14 +625,14 @@ void paginaG(const Auto& a, u32 ora) {
     }
     // now: size of the acceleration and where it pushes
     int m = radice((u32)(gl * gl + gn * gn));
-    tre(P_G_ADESSO0, ID_C84, m);
+    tre(P_G_ADESSO0, ID_C76, m);
     int scritta = 0;
     if (m >= 150) {
         if (assoluto(gl) >= assoluto(gn)) scritta = gl > 0 ? 1 : 2;
         else scritta = gn > 0 ? 3 : 4;
     }
     metti(P_G_TESTO, ID_G_TESTO[t][scritta]);
-    for (int k = 0; k < 4; ++k) tre(P_G_MAX0_0 + 3 * k, ID_C34, g_gMax[k]);
+    for (int k = 0; k < 4; ++k) tre(P_G_MAX0_0 + 3 * k, ID_C30, g_gMax[k]);
     for (int k = 0; k < kGrafN; ++k) metti(P_G_GRAF0 + k, ID_G_BARRA[t][g_storia[k]]);
 }
 
@@ -736,14 +721,14 @@ void rigaRecord(int riga) {
         if (riga == 3) { if (c[2] == 10) metti(p + 2, ID_C30[t][0]); }   // "0,8 m"
         else { if (c[1] == 10) metti(p + 1, ID_C30[t][0]); if (c[2] == 10) metti(p + 2, ID_C30[t][0]); }   // "0,45 s"
     }
-    metti(P_CR_SEGNO0 + 5 * riga, IDG_CR_SEGNO[riga][t][g_ultimoRecord == riga ? 0 : 1]);
+    metti(P_CR_SEGNO0 + 5 * riga, ID_CR_SEGNO[t][g_ultimoRecord == riga ? 0 : 1]);
 }
 
 void paginaCrono(const Auto& a) {
     const int t = g_tema;
     int vk = a.haVel ? a.velocita / 1000 : 0;
     int accesi = limita(vk * kSegN / 100, 0, kSegN);
-    for (int k = 0; k < kSegN; ++k) metti(P_CR_SEG0 + k, IDG_CSEG[k][t][k < accesi ? 0 : 1]);
+    for (int k = 0; k < kSegN; ++k) metti(P_CR_SEG0 + k, IDG_SEG[k][t][k < accesi ? 0 : 1]);   // the pictures of the revs ring
     metti(P_CR_NOME, ID_CR_NOME[t][0]);
     // time in the dial: "6,84" / "12,35", centred
     int simboli[5], ns = 0;
@@ -767,7 +752,7 @@ void paginaCrono(const Auto& a) {
         metti(p, ID_C76[t][simboli[k]]);
         x += w;
     }
-    numeroDestra(P_CR_VEL0, 3, ID_C22, limita(vk, 0, 999));
+    numeroDestra(P_CR_VEL0, 3, ID_C30, limita(vk, 0, 999));
     static const int statoDi[4] = {2, 0, 1, 3};           // frames: pronto, via, fermati, fatto, fermo
     static const int luciDi[4] = {1, 2, 3, 0};            // frames: spente, rosso, verde, corsa
     metti(P_CR_STATO, ID_CR_STATO[t][a.haVel ? statoDi[g_cr] : 4]);
@@ -783,27 +768,28 @@ void paginaMotore(const Auto& a) {
     int val[4] = {a.haTemp ? a.olio : -1, a.haTemp ? a.acqua : -1, a.haGas ? a.gas : -1, a.haCoppia ? a.coppia : -1};
     for (int i = 0; i < 4; ++i) {
         int accesi = val[i] < 0 ? 0 : limita(((val[i] - kMotMin[i]) * kMotK[i]) >> 16, 0, kMotN);
-        metti(P_MOT_QUAD0 + 4 * i, IDG_QUADRANTE[i][t][accesi]);
-        const u32 p = P_MOT_VAL0_0 + 4 * i;
-        if (val[i] < 0) { for (int k = 0; k < 3; ++k) metti(p + k, ID_C42[t][10]); continue; }
+        const int schema = i < 2 ? 0 : 1;           // frames of a segment: 0 = temperature colours, 1 = throttle/torque, 2 = off
+        for (int k = 0; k < kMotN; ++k) metti(P_MOT_SEG0_0 + i * kMotN + k, IDG_MSEG[k][t][k < accesi ? schema : 2]);
+        const u32 p = P_MOT_VAL0_0 + 3 * i;
+        if (val[i] < 0) { for (int k = 0; k < 3; ++k) metti(p + k, ID_C40[t][10]); continue; }
         int v = limita(val[i], 0, 999);
         int n = v >= 100 ? 3 : (v >= 10 ? 2 : 1);
         if (n != g_motCifre[i]) {
             g_motCifre[i] = n;
             int cx = kMotCx0 + i * kMotPasso;
-            int sx = cx - n * kCella_C42 / 2;
-            for (int k = 0; k < n; ++k) spostaX(p + k, sx + k * kCella_C42 + kCella_C42 / 2 - kLarg_C42 / 2);
+            int sx = cx - n * kCella_C40 / 2;
+            for (int k = 0; k < n; ++k) spostaX(p + k, sx + k * kCella_C40 + kCella_C40 / 2 - kLarg_C40 / 2);
         }
         int c[4];
         cifreDi(v, c);
         if (v == 0) c[3] = 0;
-        for (int k = 0; k < 3; ++k) metti(p + k, k < n ? ID_C42[t][c[4 - n + k]] : ID_C42[t][10]);
+        for (int k = 0; k < 3; ++k) metti(p + k, k < n ? ID_C40[t][c[4 - n + k]] : ID_C40[t][10]);
     }
     // battery, %, right-aligned; 255 = not valid: "--"
     if (a.haBatteria && a.batteria >= 0 && a.batteria <= 100) {
-        numeroDestra(P_MOT_BATT0, 3, ID_C28, a.batteria);
+        numeroDestra(P_MOT_BATT0, 3, ID_C30, a.batteria);
     } else {
-        metti(P_MOT_BATT0, ID_C28[t][10]); metti(P_MOT_BATT0 + 1, ID_C28[t][11]); metti(P_MOT_BATT0 + 2, ID_C28[t][11]);
+        metti(P_MOT_BATT0, ID_C30[t][10]); metti(P_MOT_BATT0 + 1, ID_C30[t][11]); metti(P_MOT_BATT0 + 2, ID_C30[t][11]);
     }
     // steering wheel, degrees, right-aligned with the sign
     if (a.haSterzo) {
@@ -814,13 +800,13 @@ void paginaMotore(const Auto& a) {
         if (v == 0) c[3] = 0;
         int primo = v >= 100 ? 1 : (v >= 10 ? 2 : 3);       // first piece with a digit
         for (int k = 0; k < 4; ++k) {
-            u32 id = ID_C28[t][10];
-            if (k >= primo) id = ID_C28[t][c[k]];
-            else if (k == primo - 1 && gr < 0) id = ID_C28[t][11];
+            u32 id = ID_C30[t][10];
+            if (k >= primo) id = ID_C30[t][c[k]];
+            else if (k == primo - 1 && gr < 0) id = ID_C30[t][11];
             metti(P_MOT_STERZO0 + k, id);
         }
     } else {
-        for (int k = 0; k < 4; ++k) metti(P_MOT_STERZO0 + k, k == 3 ? ID_C28[t][11] : ID_C28[t][10]);
+        for (int k = 0; k < 4; ++k) metti(P_MOT_STERZO0 + k, k == 3 ? ID_C30[t][11] : ID_C30[t][10]);
     }
     metti(P_MOT_FRIZIONE, ID_FRIZIONE[t][a.haFrizione && a.frizione > 0 ? 0 : 1]);
 }
@@ -890,6 +876,7 @@ void giroNoop(void*) {}
 void giroRun(void*) {
     if (!g_app || g_finito) return;
     u32 ora = adessoMs();
+    g_aggiornamenti = 0;
     ++g_tick; ++g_tickStat;
     if (g_tick == kGiroCds) registraCds();
     leggiValori();
@@ -916,6 +903,8 @@ void giroRun(void*) {
         g_sano = true;
         int zero = 0;
         scriviNumeri(kAvvii, &zero, 1);
+        char suChiavetta[192];
+        if (avviiSuChiavetta(suChiavetta, sizeof(suChiavetta))) scriviNumeri(suChiavetta, &zero, 1);
         scriviLog("%u s running: start counted as good", kSecondiSano);
     }
     u32 durata = adessoMs() - ora;
@@ -958,7 +947,6 @@ bool appOnInit(bmw::PluginApp* self) {
     for (int k = 0; k < 3; ++k) { g_scia[k][0] = -1000; g_scia[k][1] = -1000; }
     controllaFile(g_inizio);
     g_tema = temaDa(g_demo ? demoAuto(g_inizio) : g_auto);
-    caricaPezzi();
     for (int p = 0; p < PAG_N; ++p) sfondoPagina(p);
     scegli(PAG_GIRI);
     avviaGiro(self);
@@ -979,11 +967,21 @@ void appOnFinalize(bmw::PluginApp* self) {
 bmw::PluginApp* creaApp(bmw::IDispatcher& dispatcher, const char* name, const bmw::Bundle& params, const bmw::Bundle& config) {
     scriviLog("create(%s) %s %s (build %s)", name ? name : "(null)", NOME_PLUGIN, VERSIONE, BUILD);
     if (access(kDisable, F_OK_Q) == 0) { scriviLog("off: %s exists", kDisable); return 0; }
-    int avvii = 0;
+    int avvii = 0, avviiChiavetta = 0;
     leggiNumeri(kAvvii, &avvii, 1);
-    if (avvii >= (int)kMaxAvvii) { scriviLog("off: %d starts without reaching %u s (delete %s to try again)", avvii, kSecondiSano, kAvvii); return 0; }
+    char suChiavetta[192];
+    bool chiavetta = avviiSuChiavetta(suChiavetta, sizeof(suChiavetta));
+    if (chiavetta) leggiNumeri(suChiavetta, &avviiChiavetta, 1);
+    scriviLog("start count: RAM %d, stick %s %d", avvii, chiavetta ? suChiavetta : "(no stick)", avviiChiavetta);
+    if (avviiChiavetta > avvii) avvii = avviiChiavetta;
+    if (avvii >= (int)kMaxAvvii) {
+        scriviLog("off: %d starts without reaching %u s (delete %s and %s to try again)", avvii, kSecondiSano, kAvvii,
+                  chiavetta ? suChiavetta : "<stick>/nbt-evo-apps/MiniSport.avvii");
+        return 0;
+    }
     int prossimo = avvii + 1;
     scriviNumeri(kAvvii, &prossimo, 1);
+    if (chiavetta) scriviNumeri(suChiavetta, &prossimo, 1);
     if (g_app) { scriviLog("create: already created"); return 0; }
     void* mem = malloc(bmw::kPluginAppStorage);
     if (!mem) return 0;

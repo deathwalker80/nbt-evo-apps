@@ -141,7 +141,7 @@ installa_uno() {
     fi
     rm -f "$AA/installed/$x.txt"
   done
-  for x in $(campo "$pt" reset); do rm -f "$SHM/$x"; done
+  for x in $(campo "$pt" reset); do rm -f "$SHM/$x" "$S/$x"; done   # in RAM and on the stick (MINI Sport keeps both)
   { cat "$pt"; echo "variant=$var"; echo "installed=$(date '+%Y-%m-%d %H:%M:%S')"; } > "$AA/installed/$n.txt"
   log "OK: $n $(campo "$pt" version) installed${var:+ ($var)}"
   for x in $(campo "$pt" disable_file); do

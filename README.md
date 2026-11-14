@@ -12,7 +12,7 @@ be for every car or for one brand (MINI, BMW, Supra): you choose your car once.
 
 | App | Package | For | Status |
 |---|---|---|---|
-| **MINI Sport**: revs and shift light, G-meter, timers (0-100, 0-50, 80-120, braking 100-0), engine gauges | `MiniSport` | MINI | s1: car tests 12/11 and 13/11 failed (no digits, no icon, theme inverted, Giri page not following); build 13/11 b sends the moving pictures as pictures, to try |
+| **MINI Sport**: revs and shift light, G-meter, timers (0-100, 0-50, 80-120, braking 100-0), engine gauges | `MiniSport` | MINI | s1: car tests 12/11 and 13/11 failed (no digits, no icon, theme inverted, Giri page not following); build 14/11 c, to try: moving pictures by id from a 90 KB zip (inside what loaded in the car: ProvaZip B), 10 updates per second, start count also on the stick |
 | **App da USB**: the packages of the stick from the iDrive menu, with the knob | `AppUsb` | all | t0 = diagnosis only, installs nothing |
 | **Lettura dati**: TEST, reads only - which car data (CDS) a plugin gets, and the graphics libraries of the HMI | `LetturaDati` | all | t0 |
 | SportTest: test plugin of the car data and of the HMI calls | `SportTest` | all | t1, tried in the car (results below); replaced by MINI Sport |
@@ -87,6 +87,7 @@ apps/<Name>/            one app: C++ plugin, generator of its stick files (make.
 framework/              declarations of the HMI plugin framework of the head unit
 build/build.sh          builds every app (ARM, QNX) and copies lib<Name>.so into its package
 tools/pacchetti.py      copies package.txt into the packages and writes files.sum
+tools/dme-lettura.ps1   Windows PC + ENET cable: READ-ONLY look at what the engine computer answers (UDS 22 / OBD 01 only)
 tools/importa_idrive_plus.py   iDrive Plus stick -> packages
 usb/nbt-evo-apps/       the stick folder: pkg.sh, install.sh, remove.sh, README.txt, pacchetti/<Name>/
 ```
@@ -94,7 +95,7 @@ usb/nbt-evo-apps/       the stick folder: pkg.sh, install.sh, remove.sh, README.
 ## Build
 
 ```sh
-python3 apps/MiniSport/make.py    # pictures, zips, XML of MINI Sport + apps/MiniSport/layout.h (a few minutes)
+python3 apps/MiniSport/make.py    # pictures, zips, XML of MINI Sport + apps/MiniSport/layout.h (a few minutes; pip install pyoxipng)
 python3 apps/AppUsb/make.py       # XML, zips of App da USB
 python3 apps/LetturaDati/make.py  # XML, zips of Lettura dati
 python3 apps/SportTest/make.py    # XML, pictures of SportTest

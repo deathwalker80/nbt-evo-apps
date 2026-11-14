@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
 Builds MINI Sport for the USB stick and the layout shared with the C++ plugin:
-  usb/nbt-evo-apps/pacchetti/MiniSport/  MiniSport.xml, .manifest, _ALL_Texts.zip, _ALL_Images.zip (ONLY the icon of the
-                               list), MiniSport_pezzi.bin (all the small moving pictures, sent by the plugin as pictures),
+  usb/nbt-evo-apps/pacchetti/MiniSport/  MiniSport.xml, .manifest, _ALL_Texts.zip, _ALL_Images.zip (all the small
+                               moving pictures, shown by id; the icon of the list is the LAST picture of the zip),
                                page backgrounds bg_<page>_<theme>.png and bg_menu_<theme>.png (sent as pictures, rarely)
   apps/MiniSport/layout.h   ids of components, models and pictures, positions
-What the car showed in SportTest t1 decides how things move:
-  - moving a picture (setProperty x/y): works (G-meter dot)       -> G dot, centring of numbers
-  - switching a picture of the zip by id (ImageID): works with a 12-picture zip (SportTest); with the 801-picture,
-    5 MB zip of s1 (13/11) the HMI loaded nothing (no icon, no digit): the moving pictures are now sent as pictures
-    (updateModel + Image, the way the page backgrounds already showed in the car) from MiniSport_pezzi.bin
-  - changing the width of a picture (setProperty 9): does NOT work -> bars are pictures in 21 steps
-Usage: python3 apps/MiniSport/make.py      (Pillow, numpy, Inter font; ~1-3 minutes)
+What the car showed decides how things move:
+  - moving a picture (setProperty x/y): works (SportTest t1, G-meter dot)   -> G dot, centring of numbers
+  - switching a picture of the zip by id (ImageID): works (SportTest t1, 12-picture zip)
+  - changing the width of a picture (setProperty 9): does NOT work -> bars are pictures in steps
+  - zip of the pictures: ProvaZip A (100 pictures, 25 KB) and B (400 pictures, 94 KB, stored, RGBA PNG) loaded in the
+    car on 13/11, C (50 pictures, 2.5 MB) and the 801-picture 5 MB zip of s1 did not. Pictures of 6.6 KB load (icons of
+    iDrive Plus). So the zip of MINI Sport is kept inside what the car showed: stored, RGBA PNG, at most 400 pictures,
+    at most 94 KB in all, no picture over 6.6 KB. The build STOPS if one of these is passed.
+    To stay inside: flat LEDs and segments (no glow), one set of moving pictures for MID and SPORT (the accent colour is
+    in the backgrounds), 5 digit sizes, bars in 11 steps, engine dials made of segments shared by the 4 dials.
+Usage: python3 apps/MiniSport/make.py      (Pillow, numpy, pyoxipng, Inter font; ~3 minutes)
 """
 import io
 import math
@@ -33,21 +37,26 @@ OUT = os.path.join(QUI, "..", "..", "usb", "nbt-evo-apps", "pacchetti", NOME)
 HEADER = os.path.join(QUI, "layout.h")
 TEMI = ("mid", "sport")
 ID_ICONA = 64200
-ID_PRIMO = 64201                               # 64201..65499: pictures of MiniSport_pezzi.bin (ids of the plugin only)
+ID_PRIMO = 64201                               # 64201..: moving pictures of MiniSport_ALL_Images.zip (ids of the plugin only)
+# limits of the zip: what loaded in the car (ProvaZip B: 400 pictures, 93929 bytes; iDrive Plus icons up to 6596 bytes)
+ZIP_MAX_IMMAGINI = 400
+ZIP_MAX_BYTE = 93929
+IMMAGINE_MAX_BYTE = 6596
 FOCUS = 32760
 CONNETTORE = 218
 
 # ---- geometry (screen pixels of the 1280x480 page; safe area x 10-1140, y 6-420) ------------------------------
 GC = (222, 244)                                # big round dial (revs, timer)
 GR = 172
-SEG = dict(r0=147, r1=166, a0=225, a1=-45, n=30, gap=4.6)
+SEG = dict(r0=147, r1=166, a0=225, a1=-45, n=20, gap=4.6)
 GIRI_MAX, GIRI_ROSSO = 7000, 6000
-SHIFT = dict(x0=452, x1=1120, y=104, n=10)
+SHIFT = dict(x0=452, x1=1122, y=104, n=10)       # 67 px per LED: whole pixels, so LEDs of the same colour are the same picture
 VALORI_X, VALORI_Y, VALORI_W = (440, 794), (150, 290), 330
 GM = dict(cx=222, cy=244, r=164)
 GRAFICO = dict(x0=456, passo=22, w=12, base=410, hmax=80, n=30, livelli=8)
 CR_RIGHE_Y0, CR_RIGA = 160, 64
-MOT = dict(cx0=150, passo=283, cy=214, r=112, n=22)
+MOT = dict(cx0=150, passo=283, cy=214, r=112, n=10)
+BARRA_PASSI = 8                                # bars of the revs page: frames 0..8
 MENU_X0, MENU_W = 15, 280
 
 # ---- what goes in the zip and on the screen ------------------------------------------------------------------
@@ -91,22 +100,29 @@ def cella(sz, peso="SemiBold"):
     return int(math.ceil(max(f.getlength(c) for c in "0123456789") / g.S)) + 2
 
 
-def set_cifre(nome, sz, col=g.BIANCO, peso="SemiBold", scuro=False, per_tema=False, extra=()):
+def set_cifre(nome, sz, col=g.BIANCO, peso="SemiBold", scuro=False, per_tema=False, extra=(), senza=""):
     """digits 0-9 + empty (+ extra characters) in a cell: the box is placed at (0,0) and the components move it"""
     cw = max(cella(sz, peso), int(math.ceil(max([g.F(sz, peso, True).getlength(c) / g.S for c in extra] or [0]))) + 2)
-    pad = 0 if scuro else 8
+    pad = 1
     h = int(sz * 1.25) + pad * 2
     w = cw + pad * 2
 
     def disegna(tema, fr, box):
         lay = g.vuoto()
-        if fr == "vuoto":
+        if fr == "vuoto" or fr in senza:                # never shown: the empty picture (one id after deduplication)
             return lay
         c = col(tema) if callable(col) else col
-        g.numero(lay, (box[0] + w / 2, box[1] + h / 2), fr, sz, c, "mm", peso, scuro=scuro)
+        cifra_piatta(lay, (box[0] + w / 2, box[1] + h / 2), fr, sz, c, peso, scuro)
         return lay
     nuovo_set(nome, (0, 0, w, h), CIFRE + list(extra), disegna, per_tema)
     return w, h, pad, cw
+
+
+def cifra_piatta(dst, xy, s, sz, col, peso, scuro):
+    """a digit of the zip: one flat colour, no shading, no shadow (small PNG), as the white text of the native pages"""
+    f = g.F(sz, peso, True)
+    m = g.maschera(lambda d: d.text(g.P(*xy), s, font=f, fill=255, anchor="mm"))
+    g.sopra(dst, g.colore(col, m))
 
 
 def posa(stato, cnome, set_nome, x_cella, y_centro):
@@ -137,17 +153,20 @@ def registra_cifre(nome, sz, **kw):
 
 
 # ---- pages -----------------------------------------------------------------------------------------------------
+# colours of the moving pictures: the same in MID/GREEN and SPORT (one set of pictures for both themes)
+NEUTRO = dict(chiaro=(232, 240, 244), ambra=(255, 200, 70), caldo=(255, 160, 35), rosso=(255, 52, 46))
+
+
 def colori_giri(tema, k):
-    T = g.TEMI[tema]
     n = SEG["n"]
     rosso_da = int(GIRI_ROSSO / GIRI_MAX * n)
     if k >= rosso_da:
-        return T["rosso"]
+        return NEUTRO["rosso"]
     if k >= rosso_da - 4:
-        return T["caldo"]
+        return NEUTRO["caldo"]
     if k >= rosso_da - 12:
-        return T["acc"]
-    return T["chiaro"]
+        return NEUTRO["ambra"]
+    return NEUTRO["chiaro"]
 
 
 SEGMENTI = g.segmenti_arco(GC[0], GC[1], SEG["r0"], SEG["r1"], SEG["a0"], SEG["a1"], SEG["n"], SEG["gap"])
@@ -169,8 +188,7 @@ SHIFT_FORME = shift_forme()
 
 
 def colore_shift(tema, i):
-    T = g.TEMI[tema]
-    return g.VERDE if i < 4 else (T["caldo"] if i < 7 else T["rosso"])
+    return g.VERDE if i < 4 else (NEUTRO["caldo"] if i < 7 else NEUTRO["rosso"])
 
 
 def sfondo_giri(tema):
@@ -210,12 +228,11 @@ def sfondo_giri(tema):
 
 
 VALORI_GIRI = [("goccia", "Olio", "°C"), ("termo", "Acqua", "°C"), ("pedale", "Gas", "%"), ("coppia", "Coppia", "Nm")]
-BARRE_GIRI = ["verde", "verde", "acc", "caldo"]
+BARRE_GIRI = ["verde", "verde", "acc", "acc"]   # temperatures green, throttle and torque white
 
 
 def colore_barra(tema, tipo):
-    T = g.TEMI[tema]
-    return {"verde": g.VERDE, "acc": T["acc"], "caldo": T["caldo"]}[tipo]
+    return {"verde": g.VERDE, "acc": NEUTRO["chiaro"], "caldo": NEUTRO["caldo"]}[tipo]
 
 
 def sfondo_gmeter(tema):
@@ -235,13 +252,13 @@ def sfondo_gmeter(tema):
     g.testo(dst, (cx + R - 6, cy + 14), "1 g", 17, g.BIANCO, 0.75, "Regular", "rm")
     g.etichetta(dst, 452, 84, "Adesso")
     xs = posizioni_g_adesso()
-    g.numero(dst, (xs["virgola"], 150), ",", 84, anchor="mm")
+    g.numero(dst, (xs["virgola"], 150), ",", 76, anchor="mm")
     g.testo(dst, (xs["fine"] + 10, 168), "g", 26, g.BIANCO, 0.82, "Regular", "lm")
     for i, n in enumerate(["Sinistra", "Destra", "Spinta", "Frenata"]):
         x, y = 800 + (i % 2) * 170, 84 + (i // 2) * 76
         g.etichetta(dst, x, y, n)
         p = posizioni_g_max(x)
-        g.numero(dst, (p["virgola"], y + 42), ",", 34, anchor="mm")
+        g.numero(dst, (p["virgola"], y + 42), ",", 30, anchor="mm")
         g.testo(dst, (p["fine"] + 6, y + 48), "g", 18, g.BIANCO, 0.78, "Regular", "lm")
     g.separatore(dst, 800, 1132, 154, 0.35)
     g.separatore_v(dst, 786, 84, 226)
@@ -252,15 +269,15 @@ def sfondo_gmeter(tema):
 
 
 def posizioni_g_adesso():
-    c = cella_di("c84")
-    v = g.larghezza(",", 84, "SemiBold", True)
+    c = cella_di("c76")
+    v = g.larghezza(",", 76, "SemiBold", True)
     x = 452
     return {"d0": x, "virgola": x + c + v / 2, "d1": x + c + v, "d2": x + 2 * c + v, "fine": x + 3 * c + v}
 
 
 def posizioni_g_max(x):
-    c = cella_di("c34")
-    v = g.larghezza(",", 34, "SemiBold", True)
+    c = cella_di("c30")
+    v = g.larghezza(",", 30, "SemiBold", True)
     return {"d0": x, "virgola": x + c + v / 2, "d1": x + c + v, "d2": x + 2 * c + v, "fine": x + 3 * c + v}
 
 
@@ -310,10 +327,9 @@ DATI_MOTORE = [("goccia", "Olio", "°C", 50, 150), ("termo", "Acqua", "°C", 40,
                ("coppia", "Coppia", "Nm", 0, 300)]
 
 
-def zone_motore(tema, i):
-    T = g.TEMI[tema]
-    return [[(0, g.FREDDO), (.35, g.VERDE), (.85, T["rosso"])], [(0, g.FREDDO), (.35, g.VERDE), (.85, T["rosso"])],
-            [(0, T["acc"]), (.9, T["caldo"])], [(0, T["acc"]), (.8, T["caldo"])]][i]
+# colours of the engine dial segments: "t" = temperatures (cold, right, too hot), "g" = throttle and torque
+ZONE_MOTORE = {"t": [(0, g.FREDDO), (.35, g.VERDE), (.85, NEUTRO["rosso"])], "g": [(0, NEUTRO["chiaro"]), (.8, NEUTRO["caldo"])]}
+SCHEMA_MOTORE = ["t", "t", "g", "g"]          # oil, water, throttle, torque
 
 
 def segmenti_motore(i):
@@ -334,9 +350,9 @@ def sfondo_motore(tema):
         g.etichetta(dst, cx, cy + r + 26, nome, "mm", 0.88)
     g.separatore(dst, 18, 1132, 374)
     g.etichetta(dst, 30, 398, "Batteria", "lm")
-    g.testo(dst, (POS_BATT + 3 * cella_di("c28") + 6, 401), "%", 18, g.BIANCO, 0.78, "Regular", "lm")
+    g.testo(dst, (POS_BATT + 3 * cella_di("c30") + 6, 401), "%", 18, g.BIANCO, 0.78, "Regular", "lm")
     g.etichetta(dst, 380, 398, "Sterzo", "lm")
-    g.testo(dst, (POS_STERZO + 4 * cella_di("c28") + 4, 398), "°", 22, g.BIANCO, 0.78, "Regular", "lm")
+    g.testo(dst, (POS_STERZO + 4 * cella_di("c30") + 4, 398), "°", 22, g.BIANCO, 0.78, "Regular", "lm")
     g.etichetta(dst, 760, 398, "Frizione", "lm")
     g.lente_nativa(dst, 900, 398, 12, interno=0.0, ombra_lunga=False)
     return dst
@@ -378,27 +394,37 @@ def pad_box(pts, pad):
     return g.bbox(pts, pad)
 
 
+def box_uguali(forme, pad):
+    """boxes of the same size for a group of shapes (each centred on its own shape): the "off" pictures of the group
+    are then the same bytes and become ONE picture of the zip"""
+    boxes = [g.bbox(f, pad) for f in forme]
+    w = max(b[2] - b[0] for b in boxes)
+    h = max(b[3] - b[1] for b in boxes)
+    out = []
+    for b in boxes:
+        x0 = (b[0] + b[2] - w) // 2
+        y0 = (b[1] + b[3] - h) // 2
+        out.append((x0, y0, x0 + w, y0 + h))
+    return out
+
+
 def definisci():
-    # digit sets (cells) - must exist before the backgrounds use cella_di
+    # digit sets (cells) - must exist before the backgrounds use cella_di. 5 sizes, white, the same for both themes
     registra_cifre("c56", 56, extra=["."])                     # revs (with the thousands dot)
-    registra_cifre("c40", 40)                                   # values of the revs page
-    registra_cifre("c84", 84)                                   # G now
-    registra_cifre("c34", 34)                                   # G max
-    registra_cifre("c76", 76, extra=[","])                     # timer (comma moves with the digits)
-    registra_cifre("c22", 22, col=lambda t: g.TEMI[t]["acc2"], peso="Medium", per_tema=True)   # timer speed
-    registra_cifre("c30", 30, extra=["-"])                     # timer records ("-" = no record yet)
-    registra_cifre("c42", 42)                                   # engine dials
-    registra_cifre("c28", 28, extra=["-"])                     # battery, steering
-    registra_cifre("marcia", 40, col=g.SCURO, scuro=True, extra=["N", "R", "-"])
+    registra_cifre("c40", 40)                                   # values of the revs page, engine dials
+    registra_cifre("c76", 76, extra=[","])                     # G now, timer (comma moves with the digits)
+    registra_cifre("c30", 30, extra=["-"])                     # G max, timer records and speed, battery, steering
+    registra_cifre("marcia", 40, col=g.SCURO, scuro=True, extra=["N", "R", "-"], senza="0789")   # manual, 6 gears
 
     # --- revs page (state 110) ---
-    for k, f in enumerate(SEGMENTI):
-        b = pad_box(f, 12)
-        nuovo_set(f"seg{k}", b, ["on", "off"], acceso_spento(lambda tema, fr, box, k=k, f=f: _led(tema, f, colori_giri(tema, k), 6)))
+    for k, (f, b) in enumerate(zip(SEGMENTI, box_uguali(SEGMENTI, 2))):
+        nuovo_set(f"seg{k}", b, ["on", "off"], acceso_spento(lambda tema, fr, box, k=k, f=f: _led(f, colori_giri(tema, k))),
+                  per_tema=False)
         componente(110, f"giri_seg{k}", f"seg{k}")
     for i, f in enumerate(SHIFT_FORME):
-        b = pad_box(f, 14)
-        nuovo_set(f"shift{i}", b, ["on", "off"], acceso_spento(lambda tema, fr, box, i=i, f=f: _led(tema, f, colore_shift(tema, i), 8)))
+        b = pad_box(f, 2)
+        nuovo_set(f"shift{i}", b, ["on", "off"], acceso_spento(lambda tema, fr, box, i=i, f=f: _led(f, colore_shift(tema, i))),
+                  per_tema=False)
         componente(110, f"giri_shift{i}", f"shift{i}")
     # revs digits: d0 . d1 d2 d3, centred by the plugin around GC[0]
     for k in range(4):                                      # placed by the plugin (centred)
@@ -410,180 +436,172 @@ def definisci():
         cifre_in_fila(110, f"giri_val{i}_", "c40", x + 62, y + 52, 3)
         bx0, by, bx1 = x + 62, y + 92, x + VALORI_W - 8
         tipo = BARRE_GIRI[i]
-        nuovo_set(f"barra_{tipo}", (bx0 - 10, by - 14, bx1 + 10, by + 14), [str(s) for s in range(21)],
-                  lambda tema, fr, box, tipo=tipo, bx0=bx0, bx1=bx1, by=by: _barra(tema, tipo, bx0, by, bx1, int(fr) / 20))
-        COMPONENTI.append((110, f"giri_barra{i}", f"barra_{tipo}", bx0 - 10, by - 14, bx1 - bx0 + 20, 28))
+        if f"barra_{tipo}" not in SETS:                     # the box is relative: the same pictures for every bar
+            nuovo_set(f"barra_{tipo}", (0, 0, bx1 - bx0 + 4, 10), [str(s) for s in range(BARRA_PASSI + 1)],
+                      lambda tema, fr, box, tipo=tipo: _barra(tipo, box, int(fr) / BARRA_PASSI), per_tema=False)
+        componente(110, f"giri_barra{i}", f"barra_{tipo}", bx0 - 2, by - 5)
 
     # --- G-meter page (state 111) ---
-    for nome, r, al in (("punto", 14, 1.0), ("scia0", 7, 0.38), ("scia1", 6, 0.24), ("scia2", 5, 0.14)):
-        lato = 2 * (r + 14)
-        nuovo_set(f"g_{nome}", (0, 0, lato, lato), ["on"], lambda tema, fr, box, r=r, al=al, nome=nome: _punto(tema, box, r, al, nome == "punto"))
+    for nome, r, al in (("punto", 13, 1.0), ("scia0", 7, 0.45), ("scia1", 6, 0.30), ("scia2", 5, 0.18)):
+        lato = 2 * (r + 2)
+        nuovo_set(f"g_{nome}", (0, 0, lato, lato), ["on"], lambda tema, fr, box, r=r, al=al, nome=nome: _punto(box, r, al, nome == "punto"),
+                  per_tema=False)
         componente(111, f"g_{nome}", f"g_{nome}", -1000, -1000)
     xs = posizioni_g_adesso()
     for k in range(3):
-        posa(111, f"g_adesso{k}", "c84", xs[f"d{k}"], 150)
+        posa(111, f"g_adesso{k}", "c76", xs[f"d{k}"], 150)
     for k in range(4):
         q = posizioni_g_max(800 + (k % 2) * 170)
         for j in range(3):
-            posa(111, f"g_max{k}_{j}", "c34", q[f"d{j}"], 84 + (k // 2) * 76 + 42)
+            posa(111, f"g_max{k}_{j}", "c30", q[f"d{j}"], 84 + (k // 2) * 76 + 42)
     nuovo_set("g_testo", (446, 196, 790, 228), ["dritto", "curva a destra", "curva a sinistra", "accelera", "frena"],
-              lambda tema, fr, box: _scritta(tema, box, fr))
+              lambda tema, fr, box: _scritta(box, fr), per_tema=False)
     componente(111, "g_testo", "g_testo")
     gr = GRAFICO
-    nuovo_set("g_barra", (0, 0, gr["w"] + 8, gr["hmax"] + 8), [str(s) for s in range(gr["livelli"] + 1)],
-              lambda tema, fr, box: _barretta(tema, box, int(fr)))
+    nuovo_set("g_barra", (0, 0, gr["w"] + 2, gr["hmax"] + 2), [str(s) for s in range(gr["livelli"] + 1)],
+              lambda tema, fr, box: _barretta(box, int(fr)), per_tema=False)
     for k in range(gr["n"]):
-        componente(111, f"g_graf{k}", "g_barra", gr["x0"] + k * gr["passo"] - 4, gr["base"] - gr["hmax"] - 4)
+        componente(111, f"g_graf{k}", "g_barra", gr["x0"] + k * gr["passo"] - 1, gr["base"] - gr["hmax"] - 1)
 
-    # --- timers page (state 112) ---
-    for k, f in enumerate(SEGMENTI):
-        b = pad_box(f, 12)
-        nuovo_set(f"cseg{k}", b, ["on", "off"], acceso_spento(lambda tema, fr, box, f=f: _led(tema, f, g.TEMI[tema]["acc"], 6)))
-        componente(112, f"cr_seg{k}", f"cseg{k}")
+    # --- timers page (state 112): the ring uses the pictures of the revs ring ---
+    for k in range(SEG["n"]):
+        componente(112, f"cr_seg{k}", f"seg{k}")
     nuovo_set("cr_nome", (GC[0] - 120, GC[1] - 92, GC[0] + 120, GC[1] - 64), [t[0] for t in TEST_CRONO],
-              lambda tema, fr, box: _etichetta_c(box, fr))
+              lambda tema, fr, box: _etichetta_c(box, fr), per_tema=False)
     componente(112, "cr_nome", "cr_nome")
     c76 = cella_di("c76")
     for k in range(5):                                      # d0 d1 , d2 d3 centred by the plugin
         posa(112, f"cr_tempo{k}", "c76", GC[0] - 2.5 * c76 + k * c76, GC[1] - 8)
     for k in range(3):                                      # speed: right-aligned before "km/h"
-        posa(112, f"cr_vel{k}", "c22", GC[0] - 2 - (3 - k) * cella_di("c22"), GC[1] + 82)
+        posa(112, f"cr_vel{k}", "c30", GC[0] - 2 - (3 - k) * cella_di("c30"), GC[1] + 82)
     nuovo_set("cr_stato", (446, 72, 700, 98), ["pronto", "via", "fermati", "fatto", "fermo"],
-              lambda tema, fr, box: _stato(box, fr))
+              lambda tema, fr, box: _stato(box, fr), per_tema=False)
     componente(112, "cr_stato", "cr_stato")
-    nuovo_set("cr_luci", (736, 70, 888, 118), ["spente", "rosso", "verde", "corsa"], lambda tema, fr, box: _luci(tema, fr))
+    nuovo_set("cr_luci", (736, 70, 888, 118), ["spente", "rosso", "verde", "corsa"], lambda tema, fr, box: _luci(fr), per_tema=False)
     componente(112, "cr_luci", "cr_luci")
+    nuovo_set("cr_segno", (0, 0, 14, 14), ["on", "off"], acceso_spento(lambda tema, fr, box: _segno(box)), per_tema=False)
     for i in range(4):
         yr, _, xs4, _ = posizioni_riga(i)
         for j in range(4):
             posa(112, f"cr_riga{i}_{j}", "c30", xs4[j], yr)
         y = CR_RIGHE_Y0 + i * CR_RIGA + 31
-        nuovo_set(f"cr_segno{i}", (448, int(y - 12), 472, int(y + 12)), ["on", "off"],
-                  acceso_spento(lambda tema, fr, box, y=y: _segno(tema, y)))
-        componente(112, f"cr_segno{i}", f"cr_segno{i}")
+        componente(112, f"cr_segno{i}", "cr_segno", 453, int(y - 7))
 
-    # --- engine page (state 113) ---
+    # --- engine page (state 113): every dial is MOT n segments; segment k has the same shape in the 4 dials, so the
+    # pictures of dial 0 are used by all four (moved by MOT passo). Frames: "t" lit with the colours of the
+    # temperatures, "g" lit with those of throttle and torque, "off" ---
+    segs0 = segmenti_motore(0)
+    for k, (f, b) in enumerate(zip(segs0, box_uguali(segs0, 2))):
+        nuovo_set(f"mseg{k}", b, ["t", "g", "off"],
+                  lambda tema, fr, box, k=k, f=f: g.vuoto() if fr == "off" else _led(f, colore_motore(fr, k)), per_tema=False)
     for i in range(4):
-        segs = segmenti_motore(i)
-        tutti = [p for f in segs for p in f]
-        b = pad_box(tutti, 10)
-        nuovo_set(f"quadrante{i}", b, [str(s) for s in range(MOT["n"] + 1)],
-                  lambda tema, fr, box, i=i, segs=segs: _quadrante(tema, i, segs, int(fr)))
-        componente(113, f"mot_quad{i}", f"quadrante{i}")
+        for k in range(MOT["n"]):
+            componente(113, f"mot_seg{i}_{k}", f"mseg{k}", dx=i * MOT["passo"])
+    for i in range(4):
         cx = MOT["cx0"] + i * MOT["passo"]
         for j in range(3):                                  # centred by the plugin
-            posa(113, f"mot_val{i}_{j}", "c42", cx - 1.5 * cella_di("c42") + j * cella_di("c42"), MOT["cy"] + 4)
-    cifre_in_fila(113, "mot_batt", "c28", POS_BATT, 398, 3)
-    cifre_in_fila(113, "mot_sterzo", "c28", POS_STERZO, 398, 4)
-    nuovo_set("frizione", (884, 382, 916, 414), ["on", "off"], acceso_spento(lambda tema, fr, box: _frizione(tema)))
+            posa(113, f"mot_val{i}_{j}", "c40", cx - 1.5 * cella_di("c40") + j * cella_di("c40"), MOT["cy"] + 4)
+    cifre_in_fila(113, "mot_batt", "c30", POS_BATT, 398, 3)
+    cifre_in_fila(113, "mot_sterzo", "c30", POS_STERZO, 398, 4)
+    nuovo_set("frizione", (890, 388, 910, 408), ["on", "off"], acceso_spento(lambda tema, fr, box: _frizione()), per_tema=False)
     componente(113, "mot_frizione", "frizione")
 
 
-# drawing helpers of the sprites (run in the sprite window)
-def _led(tema, forma, col, alone):
+def colore_motore(schema, k):
+    col = NEUTRO["chiaro"]
+    for soglia, c in ZONE_MOTORE[schema]:
+        if k / MOT["n"] >= soglia:
+            col = c
+    return col
+
+
+# drawing helpers of the sprites (run in the sprite window): flat colours, no glow (small PNG)
+def _led(forma, col):
     lay = g.vuoto()
-    g.led_acceso(lay, forma, col, alone)
+    g.sopra(lay, g.poligono(forma, col))
     return lay
 
 
-def _barra(tema, tipo, x0, y, x1, frac):
+def _barra(tipo, box, frac):
     lay = g.vuoto()
-    g.riempimento(lay, x0, y, x1, frac, colore_barra(tema, tipo), 6)
+    if frac <= 0:
+        return lay
+    h = 6
+    x0, x1, y = box[0] + 2, box[2] - 2, (box[1] + box[3]) / 2
+    xe = x0 + max(h, (x1 - x0) * frac)
+    g.sopra(lay, g.colore(colore_barra(None, tipo), g.liscio(g.d_rrect(x0, y - h / 2, xe, y + h / 2, h / 2))))
     return lay
 
 
-def _punto(tema, box, r, al, pieno):
-    T = g.TEMI[tema]
+def _punto(box, r, al, pieno):
+    """the G dot (orange with a white rim) and its fading trail"""
     lay = g.vuoto()
     cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-    if not pieno:
-        g.sopra(lay, g.colore(T["acc"], g.liscio(g.d_cerchio(cx, cy, r)) * al))
-        return lay
-    c = g.colore(T["acc"], g.liscio(g.d_cerchio(cx, cy, r)))
-    g.sopra(lay, g.bagliore(c, 10, 1.4))
-    g.sopra(lay, c)
-    rr2 = g.np.hypot(g.XX - (cx - 4), g.YY - (cy - 5))
-    g.sopra(lay, g.colore(g.BIANCO, g.np.clip(1 - rr2 / 8, 0, 1) ** 1.5 * 0.85 * g.liscio(g.d_cerchio(cx, cy, r))))
-    g.sopra(lay, g.colore(g.BIANCO, g.liscio(g.np.abs(g.d_cerchio(cx, cy, r)) - 0.8) * 0.8))
+    g.sopra(lay, g.colore(NEUTRO["caldo"], g.liscio(g.d_cerchio(cx, cy, r)) * (1.0 if pieno else al)))
+    if pieno:
+        g.sopra(lay, g.colore(g.BIANCO, g.liscio(g.np.abs(g.d_cerchio(cx, cy, r)) - 1.0)))
     return lay
 
 
-def _scritta(tema, box, fr):
+def _scritta(box, fr):
     lay = g.vuoto()
     if fr != "dritto":
-        g.testo(lay, (box[0] + 6, (box[1] + box[3]) / 2), fr, 20, g.TEMI[tema]["acc2"], 1.0, "Regular", "lm")
+        g.testo(lay, (box[0] + 6, (box[1] + box[3]) / 2), fr, 20, g.BIANCO, 1.0, "Regular", "lm", ombra_t=False)
     return lay
 
 
-def _barretta(tema, box, livello):
+def _barretta(box, livello):
     lay = g.vuoto()
     if livello == 0:
         return lay
     h = GRAFICO["hmax"] * livello / GRAFICO["livelli"]
-    x0 = box[0] + 4
-    yb = box[3] - 4
-    g.sopra(lay, g.colore(g.TEMI[tema]["acc"], g.liscio(g.d_rrect(x0, yb - h, x0 + GRAFICO["w"], yb, GRAFICO["w"] / 2 - 2)) * 0.85))
+    x0 = box[0] + 1
+    yb = box[3] - 1
+    g.sopra(lay, g.colore(NEUTRO["chiaro"], g.liscio(g.d_rrect(x0, yb - h, x0 + GRAFICO["w"], yb, GRAFICO["w"] / 2 - 2))))
     return lay
 
 
 def _etichetta_c(box, fr):
     lay = g.vuoto()
-    g.etichetta(lay, (box[0] + box[2]) / 2, (box[1] + box[3]) / 2, fr, "mm", 0.92)
+    g.testo(lay, ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2), fr.upper(), 17, g.BIANCO, 1.0, "Medium", "mm",
+            track=1.0, ombra_t=False)
     return lay
 
 
 def _stato(box, fr):
     lay = g.vuoto()
     testo = {"pronto": "Pronto", "via": "Via!", "fermati": "Fermati per partire", "fatto": "Fatto", "fermo": "In attesa"}[fr]
-    g.etichetta(lay, box[0] + 6, (box[1] + box[3]) / 2, testo, "lm", 0.92)
+    g.testo(lay, (box[0] + 6, (box[1] + box[3]) / 2), testo.upper(), 17, g.BIANCO, 1.0, "Medium", "lm", track=1.0,
+            ombra_t=False)
     return lay
 
 
-def _luci(tema, fr):
+def _luci(fr):
     lay = g.vuoto()
-    T = g.TEMI[tema]
     for i in range(3):
         sx, sy = 760 + i * 52, 94
         col = None
         if fr == "rosso" and i == 0:
-            col = T["rosso"]
+            col = NEUTRO["rosso"]
         if fr == "verde" and i == 2:
             col = g.VERDE
         if fr == "corsa":
-            col = T["acc"]
+            col = NEUTRO["chiaro"]
         if col:
-            c = g.colore(col, g.liscio(g.d_cerchio(sx, sy, 13)))
-            g.sopra(lay, g.bagliore(c, 8, 1.3))
-            g.sopra(lay, c)
-            g.sopra(lay, g.colore(g.BIANCO, g.np.clip(1 - g.np.hypot(g.XX - sx + 4, g.YY - sy + 4) / 7, 0, 1) * 0.7))
+            g.sopra(lay, g.colore(col, g.liscio(g.d_cerchio(sx, sy, 13))))
     return lay
 
 
-def _segno(tema, y):
+def _segno(box):
     lay = g.vuoto()
-    c = g.colore(g.TEMI[tema]["acc"], g.liscio(g.d_cerchio(460, y, 5)))
-    g.sopra(lay, g.bagliore(c, 4, 1.2))
-    g.sopra(lay, c)
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    g.sopra(lay, g.colore(NEUTRO["chiaro"], g.liscio(g.d_cerchio(cx, cy, 5))))
     return lay
 
 
-def _quadrante(tema, i, segs, accesi):
+def _frizione():
     lay = g.vuoto()
-    n = MOT["n"]
-    for k in range(accesi):
-        col = g.TEMI[tema]["acc"]
-        for soglia, c in zone_motore(tema, i):
-            if k / n >= soglia:
-                col = c
-        g.led_acceso(lay, segs[k], col, 4)
-    return lay
-
-
-def _frizione(tema):
-    lay = g.vuoto()
-    c = g.colore(g.TEMI[tema]["acc"], g.liscio(g.d_cerchio(900, 398, 8)))
-    g.sopra(lay, g.bagliore(c, 5, 1.3))
-    g.sopra(lay, c)
+    g.sopra(lay, g.colore(NEUTRO["caldo"], g.liscio(g.d_cerchio(900, 398, 8))))
     return lay
 
 
@@ -603,8 +621,32 @@ def lavoro_set(arg):
     out = []
     for fr in s.frames:
         lay = s.disegna(tema, fr, s.box)
-        out.append(_png(g.a_pil(lay)))       # full colour (RGBA) only: the format tried in the car
+        out.append(compatta(_png(leggero(g.a_pil(lay)))))    # RGBA (the format of ProvaZip B), fewer alpha levels
     return nome, tema, out
+
+
+def compatta(png):
+    """lossless recompression (oxipng, zopfli); colour type, bit depth and palette are NOT changed: 8-bit RGBA as the
+    pictures of ProvaZip B"""
+    import oxipng
+    out = oxipng.optimize_from_memory(png, level=6, deflate=oxipng.Deflaters.zopfli(15), strip=oxipng.StripChunks.safe(),
+                                      color_type_reduction=False, bit_depth_reduction=False, palette_reduction=False,
+                                      grayscale_reduction=False)
+    return out if len(out) < len(png) else png
+
+
+LIVELLI_ALFA = 16
+
+
+def leggero(im):
+    """moving pictures of the zip: still 8-bit RGBA, but the edges use 16 transparency levels and the colour of an
+    almost transparent pixel is dropped: far smaller PNG, the same to the eye at this size"""
+    a = g.np.asarray(im, g.np.uint8).copy()
+    al = a[..., 3].astype(g.np.int32)
+    q = (al * (LIVELLI_ALFA - 1) + 127) // 255 * 255 // (LIVELLI_ALFA - 1)
+    a[..., 3] = q.astype(g.np.uint8)
+    a[q == 0] = 0
+    return g.Image.fromarray(a, "RGBA")
 
 
 def lavoro_sfondo(arg):
@@ -638,7 +680,7 @@ def icona():
     g.finestra(0, 0, 63, 54)
     lay = g.vuoto()
     g.immagine(lay, os.path.join(ICONE, "app.png"), 31.5, 27, 54, tinta=g.TEMI["sport"]["acc"], da="ciano")   # details red
-    return _png(g.a_pil(lay))
+    return compatta(_png(leggero(g.a_pil(lay))))
 
 
 # ---- XML, manifest, texts, header --------------------------------------------------------------------------------
@@ -798,7 +840,7 @@ def header(comp):
         p(f'    P_{cname(c["nome"])} = {i},')
     p("};")
     p("")
-    p("// picture ids (MiniSport_pezzi.bin): ID_<SET>[theme 0 = MID/GREEN, 1 = SPORT][frame]")
+    p("// picture ids (MiniSport_ALL_Images.zip): ID_<SET>[theme 0 = MID/GREEN, 1 = SPORT][frame]")
     for nome, s in SETS.items():
         p(f"const u32 ID_{cname(nome)}[2][{len(s.frames)}] = {{   // {', '.join(s.frames)}")
         for t in range(2):
@@ -855,7 +897,10 @@ def header(comp):
     ks = ", ".join(str(int(MOT["n"] * 65536 / (d[4] - d[3]))) for d in DATI_MOTORE)
     p(f"const int kMotK[4] = {{{ks}}};   // lit segments = (value - min) * K >> 16")
     p(f"const int kGiriCifreCy = {GC[1] - 18};")
+    p(f"const int kBarraPassi = {BARRA_PASSI};   // bars of the revs page: frames 0..kBarraPassi")
     p(f"const u32 kIdIcona = {ID_ICONA};")
+    ultimo = max(max(max(t) for t in st.ids) for st in SETS.values())
+    p(f"const u32 kIdPrimo = {ID_PRIMO}, kIdUltimo = {ultimo};   // moving pictures of the zip")
     p("")
     p("#endif")
     return "\n".join(h) + "\n"
@@ -877,7 +922,8 @@ def main():
     for nome, tema, frames in ris_set:
         png[(nome, tema)] = frames
     prossimo = ID_PRIMO
-    pezzi = []                                 # PNG of the ids ID_PRIMO, ID_PRIMO + 1, ...
+    pezzi = []                                 # PNG of the ids ID_PRIMO, ID_PRIMO + 1, ... (zip)
+    gia = {}                                   # PNG bytes -> id
     for nome, s in SETS.items():
         s.ids = [[0] * len(s.frames), [0] * len(s.frames)]
         for t, tema in enumerate(TEMI):
@@ -885,30 +931,45 @@ def main():
                 s.ids[1] = list(s.ids[0])
                 continue
             for f, dati in enumerate(png[(nome, tema)]):
+                if dati in gia:                     # the same picture (e.g. an empty frame of the same size): one id
+                    s.ids[t][f] = gia[dati]
+                    continue
+                gia[dati] = prossimo
                 s.ids[t][f] = prossimo
                 pezzi.append(dati)
                 prossimo += 1
     if prossimo > 65500:
         raise SystemExit(f"too many pictures: last id {prossimo}")
-    # the zip of the HMI: only the icon of the list (a 1-picture zip, as Lettura dati, whose icon shows in the car)
+    # the zip of the HMI: the moving pictures by id, then the icon of the list as the LAST picture (it shows only if
+    # the HMI loaded the whole zip, as in the ProvaZip tests); stored, as ProvaZip B
     zip_b = io.BytesIO()
+    icona_png = icona()
     with zipfile.ZipFile(zip_b, "w", zipfile.ZIP_STORED) as z:
-        z.writestr(f"{ID_ICONA}.png", icona())
+        for k, dati in enumerate(pezzi):
+            z.writestr(f"{ID_PRIMO + k}.png", dati)
+        z.writestr(f"{ID_ICONA}.png", icona_png)
+    tutte = pezzi + [icona_png]
+    zip_len = len(zip_b.getvalue())
+    pixel = sum(struct.unpack(">II", d[16:24])[0] * struct.unpack(">II", d[16:24])[1] for d in tutte)
+    grande = max(len(d) for d in tutte)
+    errori = []
+    if len(tutte) > ZIP_MAX_IMMAGINI:
+        errori.append(f"{len(tutte)} pictures (at most {ZIP_MAX_IMMAGINI} loaded in the car)")
+    if zip_len > ZIP_MAX_BYTE:
+        errori.append(f"zip of {zip_len} bytes (at most {ZIP_MAX_BYTE} loaded in the car)")
+    if grande > IMMAGINE_MAX_BYTE:
+        errori.append(f"a picture of {grande} bytes (at most {IMMAGINE_MAX_BYTE} loaded in the car)")
+    if any(d[24] != 8 or d[25] != 6 for d in tutte):
+        errori.append("a picture is not an 8-bit RGBA PNG (the format of ProvaZip B)")
+    print(f"zip: {len(tutte)} pictures, {zip_len} bytes, largest picture {grande} bytes, {pixel * 4 // 1024} KB decoded "
+          f"(ProvaZip B: 400 pictures, {ZIP_MAX_BYTE} bytes, 2500 KB decoded)")
+    if errori:
+        raise SystemExit("NOT BUILT, outside what the car showed: " + "; ".join(errori))
     with open(os.path.join(OUT, f"{NOME}_ALL_Images.zip"), "wb") as f:
         f.write(zip_b.getvalue())
-    # MiniSport_pezzi.bin: "MSP1", first id, count, then (offset, size) of every picture from the start of the
-    # file, then the PNGs; little endian u32 (ARM)
-    testa = 12 + 8 * len(pezzi)
-    indice, pos = [], testa
-    for d in pezzi:
-        indice.append((pos, len(d)))
-        pos += len(d)
-    with open(os.path.join(OUT, f"{NOME}_pezzi.bin"), "wb") as f:
-        f.write(b"MSP1" + struct.pack("<II", ID_PRIMO, len(pezzi)))
-        for o, n in indice:
-            f.write(struct.pack("<II", o, n))
-        for d in pezzi:
-            f.write(d)
+    vecchio_bin = os.path.join(OUT, f"{NOME}_pezzi.bin")          # pictures file of build "13/11 b": not used now
+    if os.path.exists(vecchio_bin):
+        os.remove(vecchio_bin)
     for vecchio in os.listdir(OUT):            # menu backgrounds of s1 (one per highlighted entry): not used now
         if vecchio.startswith("bg_menu") and vecchio[7:8].isdigit():
             os.remove(os.path.join(OUT, vecchio))
@@ -925,8 +986,8 @@ def main():
     with open(HEADER, "w", encoding="utf-8") as f:
         f.write(header(comp))
     grandi = max(len(d) for _, d in ris_sf)
-    print(f"ok: {len(comp)} components, zip {len(zip_b.getvalue())} bytes (icon {ID_ICONA}), pictures in "
-          f"{NOME}_pezzi.bin {len(pezzi)} (ids {ID_PRIMO}..{prossimo - 1}, {pos // 1024} KB), largest background {grandi // 1024} KB")
+    print(f"ok: {len(comp)} components, zip {zip_len} bytes ({len(pezzi)} pictures ids {ID_PRIMO}..{prossimo - 1}, icon "
+          f"{ID_ICONA} last), largest background {grandi // 1024} KB")
 
 
 if __name__ == "__main__":
