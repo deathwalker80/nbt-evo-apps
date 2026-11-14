@@ -40,7 +40,7 @@ enum { kSlotOnError = 21, kSlotOnInit = 22, kSlotOnFinalize = 23, kVtblSlots = 3
 enum { W_OK_Q = 2 };
 
 // models (AppUsb.xml, made by apps/AppUsb/make.py)
-const u32 kModMain0 = 41, kModDett0 = 51, kModDiag0 = 61, kModInst0 = 71, kModMarca0 = 81, kModSalva0 = 91;
+const u32 kModMain0 = 441, kModDett0 = 451, kModDiag0 = 461, kModInst0 = 471, kModMarca0 = 481, kModSalva0 = 491;   // make.py STATI
 const u32 kRigheMain = 7, kRigheDett = 7, kRigheDiag = 7, kRigheInst = 4, kRigheMarca = 5, kRigheSalva = 2;
 // selectActions (the focus arriving on a row)
 const u32 kSelMain0 = 20, kSelDiag = 40, kSelMarca0 = 50, kSelInst0 = 60, kSelSalva0 = 66;   // 30-36 detail, 59 nothing
@@ -155,8 +155,8 @@ bool scriviFile(const char* path, const char* testo) {
 bool uguali(const char* a, const char* b) { return strncmp(a, b, 64) == 0; }
 
 // ---- screen: the text of the rows ------------------------------------------------------------------------
-const u32 kMaxModelli = 100;
-char g_testo[kMaxModelli][120];         // text shown in every model (only changes are sent)
+const u32 kPrimoModello = 441, kNumModelli = 60;     // text models 441-497 (make.py STATI)
+char g_testo[kNumModelli][120];         // text shown in every model (only changes are sent)
 
 void riga(u32 modello, const char* fmt, ...) {
     char t[120];
@@ -165,8 +165,10 @@ void riga(u32 modello, const char* fmt, ...) {
     vsnprintf(t, sizeof(t), fmt, ap);
     __builtin_va_end(ap);
     if (!t[0]) { t[0] = ' '; t[1] = 0; }        // an empty row: one space, as in the XML
-    if (modello >= kMaxModelli || strncmp(g_testo[modello], t, sizeof(t)) == 0) return;
-    memcpy(g_testo[modello], t, sizeof(t));
+    if (modello < kPrimoModello || modello - kPrimoModello >= kNumModelli) return;
+    char* prima = g_testo[modello - kPrimoModello];
+    if (strncmp(prima, t, sizeof(t)) == 0) return;
+    memcpy(prima, t, sizeof(t));
     g_app->updateModel(modello, t);
 }
 

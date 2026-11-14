@@ -39,9 +39,9 @@ Parcel::Parcel(bool) {}
 Parcel::Parcel(int) {}
 PluginApp::PluginApp(IDispatcher&, BasicString<char>, u32, u32, RHMIInterfaceVersion, const Bundle&, const Bundle&) {}
 void PluginApp::post(Runnable*, u32) {}
-char g_schermo[200][120];
+char g_schermo[600][120];        // text models up to 497 (make.py STATI)
 u32 g_nTesti = 0;
-void PluginApp::updateModel(u32 id, const char* t) { ++g_nTesti; if (id < 200) snprintf(g_schermo[id], 120, "%s", t); }
+void PluginApp::updateModel(u32 id, const char* t) { ++g_nTesti; if (id < 600) snprintf(g_schermo[id], 120, "%s", t); }
 void PluginApp::updateModel(u32, const Image&) {}
 void PluginApp::updateModel(u32, const ImageID&) {}
 void PluginApp::setProperty(u32, u32, const Parcel&) {}

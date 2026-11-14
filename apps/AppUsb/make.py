@@ -28,24 +28,27 @@ RX, RW, RH, RY0, RPASSO = 150, 860, 44, 74, 48
 NO_OP = 59                                   # raAction of rows that do nothing when pressed
 
 # state id, title, number of rows, model of row 0, selectAction of row 0 (rows: +1 each, or the same if
-# "stessa"), action of the press of each row (hmiAction id or NO_OP)
+# "stessa"), action of the press of each row (hmiAction id or NO_OP).
+# Every id of the XML is used once (13/11: t0 had the models 41-97 and 141-197 on the ids of the actions 51-67
+# and of the state 145): actions 5-10 and 20-67, states 100-145, buttons 200.., text models 441-497, picture
+# models 541-597 (text model + 100)
 STATI = [
     # main: 0 diagnosis, 1 car and phone app, 2-6 packages / groups
-    dict(id=100, titolo="App da USB", righe=7, mod=41, sel=20, stessa=False, premi=[7, 9, 6, 6, 6, 6, 6]),
+    dict(id=100, titolo="App da USB", righe=7, mod=441, sel=20, stessa=False, premi=[7, 9, 6, 6, 6, 6, 6]),
     # detail of a package or group: 0-5 information, 6 install
-    dict(id=110, titolo="Pacchetto", righe=7, mod=51, sel=30, stessa=False, premi=[NO_OP] * 6 + [8]),
+    dict(id=110, titolo="Pacchetto", righe=7, mod=451, sel=30, stessa=False, premi=[NO_OP] * 6 + [8]),
     # diagnosis: every row starts it when it gets the focus (the first one gets it as the state opens)
-    dict(id=120, titolo="Diagnosi", righe=7, mod=61, sel=40, stessa=True, premi=[NO_OP] * 7),
+    dict(id=120, titolo="Diagnosi", righe=7, mod=461, sel=40, stessa=True, premi=[NO_OP] * 7),
     # install: the first row starts it (t0: only says what it would do)
-    dict(id=130, titolo="Installazione", righe=4, mod=71, sel=60, stessa=False, premi=[NO_OP] * 4),
+    dict(id=130, titolo="Installazione", righe=4, mod=471, sel=60, stessa=False, premi=[NO_OP] * 4),
     # car and phone app: the row with the focus is remembered, the press saves it (state 145)
-    dict(id=140, titolo="Auto e telefono", righe=5, mod=81, sel=50, stessa=False, premi=[10] * 5),
-    dict(id=145, titolo="Auto e telefono", righe=2, mod=91, sel=66, stessa=False, premi=[NO_OP] * 2),
+    dict(id=140, titolo="Auto e telefono", righe=5, mod=481, sel=50, stessa=False, premi=[10] * 5),
+    dict(id=145, titolo="Auto e telefono", righe=2, mod=491, sel=66, stessa=False, premi=[NO_OP] * 2),
 ]
 HMI_AZIONI = {5: 100, 6: 110, 7: 120, 8: 130, 9: 140, 10: 145}
 TESTI_FISSI = {   # rows whose text never changes: in the XML as button text, written again by the plugin at start
-    81: "Auto: MINI", 82: "Auto: BMW", 83: "Auto: Toyota Supra",
-    84: "iDrive Plus, app del telefono: NBT Plus", 85: "iDrive Plus, app del telefono: MINI / BMW / Supra Plus",
+    481: "Auto: MINI", 482: "Auto: BMW", 483: "Auto: Toyota Supra",
+    484: "iDrive Plus, app del telefono: NBT Plus", 485: "iDrive Plus, app del telefono: MINI / BMW / Supra Plus",
 }
 
 
