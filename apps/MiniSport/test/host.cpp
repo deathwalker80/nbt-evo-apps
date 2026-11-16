@@ -216,6 +216,35 @@ int main() {
     avanti(9000);
     fotografa("demo_crono", 112);
     unlink(kDemo);
+    avanti(6000);
+    // diesel, manual gearbox (F60 Cooper D, 16/11): the car says fuelType 6 and no gear; gears from revs and speed
+    {
+        static const int r[6] = {1167, 625, 392, 281, 220, 183};
+        for (int i = 0; i < 6; ++i) g_rapp[i] = r[i];
+        for (int i = 0; i < 5; ++i) g_limite[i] = radice((u32)(r[i] * r[i + 1]));
+        g_nRapp = 6;
+    }
+    cds(C_INFO, "{\"info\":{\"numberOfGears\":6,\"numberOfCylinders\":4,\"fuelType\":6,\"gearboxType\":0,\"displacement\":2000}}");
+    cds(C_MARCIA, "{\"gear\":0}");
+    cds(C_COPPIA, "{\"torque\":-27}");
+    for (int tema = 0; tema < 2; ++tema) {
+        const char* tn = tema ? "sport" : "mid";
+        char nome[64];
+        char b[32]; snprintf(b, sizeof(b), "{\"mode\":%d}", tema ? 4 : 3); cds(C_MODO, b);
+        scegliMenu(PAG_GIRI);
+        cds(C_GIRI, "{\"RPMSpeed\":830}"); velocita(0);
+        avanti(600);
+        snprintf(nome, sizeof(nome), "diesel_folle_%s", tn); fotografa(nome, 110);
+        cds(C_GIRI, "{\"RPMSpeed\":3210}"); velocita(82);
+        avanti(600);
+        snprintf(nome, sizeof(nome), "diesel_terza_%s", tn); fotografa(nome, 110);
+        cds(C_GIRI, "{\"RPMSpeed\":4650}"); velocita(40);
+        avanti(600);
+        snprintf(nome, sizeof(nome), "diesel_rosso_%s", tn); fotografa(nome, 110);
+        scegliMenu(PAG_MOTORE);
+        avanti(600);
+        snprintf(nome, sizeof(nome), "diesel_motore_%s", tn); fotografa(nome, 113);
+    }
     printf("== records: 0-100 %d ms, 0-50 %d ms, 80-120 %d ms, braking %d mm\n", g_record[0], g_record[1], g_record[2], g_record[3]);
     printf("== totals: pictures %u ids %u moves %u texts %u\n", bmw::g_nImg, bmw::g_nId, bmw::g_nProp, bmw::g_nTesti);
     return 0;

@@ -21,6 +21,10 @@
 // Files:
 //   /opt/aa/minisport.disable        exists: the plugin stays off
 //   /opt/aa/minisport.sport          optional: driving.mode values that mean SPORT (default 4)
+//   /opt/aa/minisport.marce          optional, manual gearbox (the car sends only reverse): rpm per km/h x10 of every gear,
+//                                    first gear first, e.g. "1167 625 392 281 220 183" (F60 Cooper D ALL4, measured 16/11)
+//   /opt/aa/minisport.motore         optional: fuel type (6 = diesel): the shift light starts with it; the car sends its
+//                                    own (engine.info) only when the ignition changes state, not at a start of the head unit
 //   /dev/shmem/MiniSport.avvii       starts that did not reach 30 s; at 3 the plugin stays off (RAM: lost when the
 //                                    head unit is switched off, kept when only the HMI restarts)
 //   <stick>/nbt-evo-apps/MiniSport.avvii   the same count on the USB stick (kept across a full restart, when the stick
@@ -34,13 +38,15 @@
 
 #define NOME_PLUGIN "MiniSport"
 #define VERSIONE MS_VERSIONE
-#define BUILD "14/11 c: pictures by id from a 90 KB zip, 10 ticks/s, capped updates, start count also on the stick"   // the version is decided by the owner: this only tells the builds apart
+#define BUILD "16/11 f: as e; diesel dial of the revs page (6000 rpm, red from 4500), numbers of the engine page centred again after a page change"   // the version is decided by the owner: this only tells the builds apart
 
 namespace {
 
 // ---- constants ---------------------------------------------------------------------------------------------
 const char* const kDisable   = "/opt/aa/minisport.disable";
 const char* const kFileSport = "/opt/aa/minisport.sport";
+const char* const kFileMarce = "/opt/aa/minisport.marce";    // optional: rpm per km/h x10 of every gear, first gear first (manual gearbox)
+const char* const kFileMotore = "/opt/aa/minisport.motore";   // optional: fuel type as engine.info gives it (6 = diesel), used until the car sends its own
 const char* const kAvvii     = "/dev/shmem/" NOME_PLUGIN ".avvii";
 const char* const kDemo      = "/dev/shmem/" NOME_PLUGIN ".demo";
 const char* const kTemaForz  = "/dev/shmem/" NOME_PLUGIN ".tema";
@@ -302,9 +308,9 @@ int radice(u32 v) {
 const char* const kProprieta[] = {
     "engine.RPMSpeed", "driving.speedActual", "driving.acceleration", "driving.gear", "engine.torque",
     "driving.acceleratorPedal", "driving.clutchPedal", "driving.steeringWheel", "engine.temperature",
-    "driving.mode", "sensors.battery",
+    "driving.mode", "sensors.battery", "engine.info",
 };
-enum { C_GIRI = 0, C_VELOCITA, C_ACCEL, C_MARCIA, C_COPPIA, C_GAS, C_FRIZIONE, C_STERZO, C_TEMP, C_MODO, C_BATTERIA };
+enum { C_GIRI = 0, C_VELOCITA, C_ACCEL, C_MARCIA, C_COPPIA, C_GAS, C_FRIZIONE, C_STERZO, C_TEMP, C_MODO, C_BATTERIA, C_INFO };
 const u32 kNumProprieta = sizeof(kProprieta) / sizeof(kProprieta[0]);
 const u32 kMaxValore = 300;
 const u32 kRawNelLog = 2;              // the first values of every property go to the log in full
@@ -380,6 +386,7 @@ struct Auto {
     bool haGiri, haVel, haAccel, haMarcia, haCoppia, haGas, haFrizione, haSterzo, haTemp, haModo, haBatteria;
 };
 Auto g_auto;
+int g_carburante = -1;                 // engine.info fuelType, -1 = not received (15 = not valid); 6 = diesel on the F60 Cooper D
 
 void leggiValori() {
     for (u32 i = 0; i < kNumProprieta; ++i) {
@@ -408,7 +415,14 @@ void leggiValori() {
                     a.modo = v; a.haModo = true;
                 }
                 break;
-            case C_BATTERIA:  if (numeroDa(b, "battery", &v)) { a.batteria = v / 1000; a.haBatteria = true; } break;
+            // battery: 255 = not valid (the car sends it for a while after the start): the last valid value is kept
+            case C_BATTERIA:  if (numeroDa(b, "battery", &v) && v >= 0 && v <= 100000) { a.batteria = v / 1000; a.haBatteria = true; } break;
+            case C_INFO:
+                if (numeroDa(b, "fuelType", &v) && v / 1000 != 15 && v / 1000 != g_carburante) {
+                    g_carburante = v / 1000;
+                    scriviLog("engine.info fuelType %d -> shift light %s", g_carburante, g_carburante == 6 ? "diesel" : "petrol");
+                }
+                break;
             default: break;
         }
         free(b);
@@ -440,7 +454,7 @@ Auto demoAuto(u32 ora) {
     static const int cs[16] = {1000, 924, 707, 383, 0, -383, -707, -924, -1000, -924, -707, -383, 0, 383, 707, 924};
     u32 k = (t >> 9) % 16u;
     a.lat = cs[k] * 6; a.lon = cs[(k + 4) % 16u] * 6; a.haAccel = true;
-    a.marcia = (int)((t >> 13) % 6u) + 1; a.haMarcia = true;
+    a.marcia = (int)((t >> 13) % 6u) + 5; a.haMarcia = true;     // raw values 5..10 = gears 1..6
     a.coppia = (x * 230) >> 12; a.haCoppia = true;
     a.gas = (x * 100) >> 12; a.haGas = true;
     a.frizione = (t >> 11) & 1; a.haFrizione = true;
@@ -470,10 +484,13 @@ int g_sfondoPag[PAG_N] = {-1, -1, -1, -1};      // theme of the background sent,
 int g_sfondoMenu = -1;                           // theme of the menu background sent, -1 = none
 
 void sfondoPagina(int pag) {
-    if (g_sfondoPag[pag] == g_tema) return;
+    // the revs page has a second dial for the diesel engines (6000 rpm, red from 4500): bg_giri_diesel_<theme>.png
+    const bool diesel = pag == PAG_GIRI && g_carburante == 6;
+    const int quale = g_tema + (diesel ? 2 : 0);
+    if (g_sfondoPag[pag] == quale) return;
     char nome[40];
-    snprintf(nome, sizeof(nome), "bg_%s_%s.png", kNomePag[pag], g_tema ? "sport" : "mid");
-    if (mostraFile(kModSfondoPag[pag], nome)) g_sfondoPag[pag] = g_tema;
+    snprintf(nome, sizeof(nome), "bg_%s%s_%s.png", kNomePag[pag], diesel ? "_diesel" : "", g_tema ? "sport" : "mid");
+    if (mostraFile(kModSfondoPag[pag], nome)) g_sfondoPag[pag] = quale;
 }
 
 void sfondoMenu() {
@@ -501,20 +518,46 @@ template <int N> void numeroDestra(u32 primo, int n, const u32 (&ids)[2][N], int
     for (int k = 0; k < n; ++k) metti(primo + k, ids[g_tema][c[4 - n + k]]);
 }
 
+// ---- gear from revs and speed (manual gearbox) -------------------------------------------------------------------
+int g_rapp[6];                         // rpm per km/h x10 of every gear, from /opt/aa/minisport.marce
+int g_limite[5];                       // limit between gear i+1 and i+2: the geometric mean of their two values
+int g_nRapp = 0;
+int g_marciaCalc = 13, g_marciaCand = 13, g_marciaConta = 0;      // indexes of ID_MARCIA (11 = N, 13 = "-")
+
+// index of ID_MARCIA, or -1 = nothing new to say (clutch pressed while moving, too slow): what is shown stays
+int marciaCalcolata(const Auto& a) {
+    if (g_nRapp < 2 || !a.haGiri || !a.haVel || !a.haFrizione) return 13;
+    int kmh = a.velocita / 1000;
+    if (kmh < 3) return a.frizione == 0 && a.giri > 300 ? 11 : 13;   // stopped, clutch released, engine running: neutral
+    if (a.frizione != 0 || kmh < 8 || a.giri < 300) return -1;
+    // rpm x10 against value x km/h: products instead of the division (no divide helpers in the HMI); at most 99990 and 3900 x 300
+    int g = limita(a.giri, 0, 9999) * 10;
+    if (kmh > 300) kmh = 300;
+    if (g > g_rapp[0] * 13 / 10 * kmh || g < g_rapp[g_nRapp - 1] * 9 / 10 * kmh) return 13;
+    int i = 0;
+    while (i < g_nRapp - 1 && g < g_limite[i] * kmh) ++i;
+    return i + 1;
+}
+
 // ---- page: revs and shift light ------------------------------------------------------------------------------
-const int kShiftDa = 4200, kShiftPasso = 200, kCambiata = 6200;
+// shift light: {first LED, step between LEDs, all LEDs blink from} - petrol, diesel (engine.info fuelType 6)
+const int kShift[2][3] = {{4200, 200, 6200}, {3000, 100, 4000}};
 int g_giriLayout = -1;                 // 1 = four digits with the dot, 0 = three digits
 
 void paginaGiri(const Auto& a, u32 ora) {
     const int t = g_tema;
     int giri = a.haGiri ? limita(a.giri, 0, 9999) : 0;
-    // ring: 30 segments up to 7000 rpm
-    int accesi = limita(giri * kSegN / kGiriMax, 0, kSegN);
-    for (int k = 0; k < kSegN; ++k) metti(P_GIRI_SEG0 + k, IDG_SEG[k][t][k < accesi ? 0 : 1]);
-    // shift light: 10 LEDs from 4200 to 6000 rpm, all of them blink from 6200
-    bool lampo = giri >= kCambiata && ((ora / 100) & 1);
+    // ring: 20 segments up to 7000 rpm, or up to 6000 with the colours of the diesel dial (divisions by constants only)
+    const bool diesel = g_carburante == 6;
+    // giri * kSegN / maximum, written with ONE constant divisor (the compiler turned two into a division by a variable,
+    // which the HMI can not do): x / 6000 = x * 7 / 42000, x / 7000 = x * 6 / 42000
+    int accesi = limita(giri * kSegN * ((diesel ? kGiriMax : kGiriMaxDiesel) / 1000) / (kGiriMax / 1000 * kGiriMaxDiesel), 0, kSegN);
+    for (int k = 0; k < kSegN; ++k) metti(P_GIRI_SEG0 + k, (diesel ? IDG_SEGD : IDG_SEG)[k][t][k < accesi ? 0 : 1]);
+    // shift light: 10 LEDs (petrol 4200 to 6000 rpm, blink from 6200; diesel 3000 to 3900, blink from 4000)
+    const int* sh = kShift[g_carburante == 6 ? 1 : 0];
+    bool lampo = giri >= sh[2] && ((ora / 100) & 1);
     for (int i = 0; i < 10; ++i) {
-        bool on = giri >= kShiftDa + i * kShiftPasso && !lampo;
+        bool on = giri >= sh[0] + i * sh[1] && !lampo;
         metti(P_GIRI_SHIFT0 + i, IDG_SHIFT[i][t][on ? 0 : 1]);
     }
     // number: "4.230" centred on the dial (pictures moved only when the length changes)
@@ -522,7 +565,7 @@ void paginaGiri(const Auto& a, u32 ora) {
     cifreDi(giri, c);
     int layout = giri >= 1000 ? 1 : 0;
     const int cc = kCella_C56, mezzo = kLarg_C56 / 2;
-    if (layout != g_giriLayout) {
+    {   // every tick: spostaX does nothing when the piece is in place, and a move skipped in a full tick is done on the next
         g_giriLayout = layout;
         if (layout) {
             int sx = kGiriCx - (4 * cc + kAvanzoPunto56) / 2;
@@ -537,12 +580,23 @@ void paginaGiri(const Auto& a, u32 ora) {
     metti(P_GIRI_CIFRA0, ID_C56[t][layout ? c[0] : 10]);
     metti(P_GIRI_PUNTO, ID_C56[t][layout ? 11 : 10]);
     for (int k = 1; k < 4; ++k) metti(P_GIRI_CIFRA0 + k, ID_C56[t][c[k]]);
-    // gear: raw driving.gear, 0 = N (meaning of the other values to be confirmed in the car)
+    // gear: raw driving.gear as AAIdrive reads it: 0 = no data, 1 = N, 2 = R, 3 = P, 5.. = gears 1..
+    // (16/11 in the car, manual gearbox: only 0 and, in reverse, 2)
     int fm = 13;                                     // "-"
-    if (a.haMarcia) fm = a.marcia == 0 ? 11 : (a.marcia >= 1 && a.marcia <= 9 ? a.marcia : 13);
+    if (a.haMarcia && a.marcia != 0) {
+        fm = a.marcia == 1 ? 11 : (a.marcia == 2 ? 12 : (a.marcia >= 5 && a.marcia <= 10 ? a.marcia - 4 : 13));
+        g_marciaCalc = g_marciaCand = 13; g_marciaConta = 0;
+    } else {
+        int c = marciaCalcolata(a);                  // shown after 3 equal ticks in a row: no flicker while shifting
+        if (c >= 0) {
+            if (c == g_marciaCand) { if (g_marciaConta < 3) ++g_marciaConta; } else { g_marciaCand = c; g_marciaConta = 1; }
+            if (g_marciaConta >= 3) g_marciaCalc = c;
+        }
+        fm = g_marciaCalc;
+    }
     metti(P_GIRI_MARCIA, ID_MARCIA[t][fm]);
     // four values with their bars (21 steps)
-    int val[4] = {a.haTemp ? a.olio : -1, a.haTemp ? a.acqua : -1, a.haGas ? a.gas : -1, a.haCoppia ? a.coppia : -1};
+    int val[4] = {a.haTemp ? a.olio : -1, a.haTemp ? a.acqua : -1, a.haGas ? a.gas : -1, a.haCoppia ? (a.coppia < 0 ? 0 : a.coppia) : -1};   // torque below zero (engine braking, idle): 0
     // steps 0..kBarraPassi (8): oil 50-150 °C, water 40-130 °C, throttle 0-100 %, torque 0-300 Nm (constant divisions)
     int passo[4] = {limita((val[0] - 50) * 2 / 25, 0, kBarraPassi), limita((val[1] - 40) * 4 / 45, 0, kBarraPassi),
                     limita(val[2] * 2 / 25, 0, kBarraPassi), limita(val[3] * 2 / 75, 0, kBarraPassi)};
@@ -765,7 +819,7 @@ int g_motCifre[4] = {-1, -1, -1, -1};  // how many digits each dial number has (
 
 void paginaMotore(const Auto& a) {
     const int t = g_tema;
-    int val[4] = {a.haTemp ? a.olio : -1, a.haTemp ? a.acqua : -1, a.haGas ? a.gas : -1, a.haCoppia ? a.coppia : -1};
+    int val[4] = {a.haTemp ? a.olio : -1, a.haTemp ? a.acqua : -1, a.haGas ? a.gas : -1, a.haCoppia ? (a.coppia < 0 ? 0 : a.coppia) : -1};   // torque below zero (engine braking, idle): 0
     for (int i = 0; i < 4; ++i) {
         int accesi = val[i] < 0 ? 0 : limita(((val[i] - kMotMin[i]) * kMotK[i]) >> 16, 0, kMotN);
         const int schema = i < 2 ? 0 : 1;           // frames of a segment: 0 = temperature colours, 1 = throttle/torque, 2 = off
@@ -774,7 +828,7 @@ void paginaMotore(const Auto& a) {
         if (val[i] < 0) { for (int k = 0; k < 3; ++k) metti(p + k, ID_C40[t][10]); continue; }
         int v = limita(val[i], 0, 999);
         int n = v >= 100 ? 3 : (v >= 10 ? 2 : 1);
-        if (n != g_motCifre[i]) {
+        {   // every tick, as the revs number: a move skipped in a full tick (page just opened) left the number off centre
             g_motCifre[i] = n;
             int cx = kMotCx0 + i * kMotPasso;
             int sx = cx - n * kCella_C40 / 2;
@@ -867,6 +921,10 @@ void statistiche(u32 ora, const Auto& a) {
     g_tickStat = g_tickMaxMs = g_statImmagini = g_statId = g_statPos = 0;
 }
 
+int g_carburanteSfondo = -1;           // fuel type the background of the revs page was last chosen with
+const u32 kMaxRapporti = 400;
+u32 g_rapporti = 0, g_rapportiMs = 0;
+
 struct Giro { void** vptr; };
 Giro  g_giro;
 void* g_giroVtbl[5];
@@ -881,6 +939,17 @@ void giroRun(void*) {
     if (g_tick == kGiroCds) registraCds();
     leggiValori();
     controllaFile(ora);
+    if (g_carburante != g_carburanteSfondo) {       // the car said which engine it has: the dial of the revs page follows
+        g_carburanteSfondo = g_carburante;
+        sfondoPagina(PAG_GIRI);
+    }
+    // for the gear from revs and speed: one line every 2 s while driving with the clutch released (at most 400 per start)
+    if (!g_demo && g_rapporti < kMaxRapporti && ora - g_rapportiMs >= 2000 && g_auto.haGiri && g_auto.haVel &&
+        g_auto.haFrizione && g_auto.frizione == 0 && g_auto.velocita >= 10000) {
+        g_rapportiMs = ora;
+        ++g_rapporti;
+        scriviLog("ratio: rpm %d km/h x10 %d torque %d gas %d", g_auto.giri, g_auto.velocita / 100, g_auto.coppia, g_auto.gas);
+    }
     Auto a = g_demo ? demoAuto(ora) : g_auto;
     int tema = temaDa(a);
     if (tema != g_tema) {
@@ -973,6 +1042,25 @@ bmw::PluginApp* creaApp(bmw::IDispatcher& dispatcher, const char* name, const bm
     bool chiavetta = avviiSuChiavetta(suChiavetta, sizeof(suChiavetta));
     if (chiavetta) leggiNumeri(suChiavetta, &avviiChiavetta, 1);
     scriviLog("start count: RAM %d, stick %s %d", avvii, chiavetta ? suChiavetta : "(no stick)", avviiChiavetta);
+    {
+        int r[6];
+        int n = leggiNumeri(kFileMarce, r, 6);
+        bool ok = n >= 2;
+        for (int i = 0; ok && i < n; ++i) if (r[i] < 50 || r[i] > 3000 || (i && r[i] >= r[i - 1])) ok = false;
+        if (ok) {
+            for (int i = 0; i < n; ++i) g_rapp[i] = r[i];
+            for (int i = 0; i + 1 < n; ++i) g_limite[i] = radice((u32)(r[i] * r[i + 1]));
+            g_nRapp = n;
+        }
+        if (n >= 0) scriviLog("%s: %d values, %s", kFileMarce, n, ok ? "gear from revs and speed" : "NOT used (2 to 6 falling numbers, 50..3000)");
+    }
+    {
+        int m[1];
+        if (leggiNumeri(kFileMotore, m, 1) == 1 && m[0] >= 0 && m[0] < 15) {
+            g_carburante = m[0];
+            scriviLog("%s: fuelType %d -> shift light %s", kFileMotore, g_carburante, g_carburante == 6 ? "diesel" : "petrol");
+        }
+    }
     if (avviiChiavetta > avvii) avvii = avviiChiavetta;
     if (avvii >= (int)kMaxAvvii) {
         scriviLog("off: %d starts without reaching %u s (delete %s and %s to try again)", avvii, kSecondiSano, kAvvii,

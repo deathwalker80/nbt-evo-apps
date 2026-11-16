@@ -25,7 +25,10 @@ $Richieste = @(
     '224205', '224201', '225889', '224A49', '22580F', '2256D7', '22586F', '224300',
     # standard OBD: supported lists, then values
     '0100', '0120', '0140',
-    '0104', '0105', '010B', '010C', '010D', '010E', '010F', '0111', '0123', '0133', '015C'
+    '0104', '0105', '010B', '010C', '010D', '010E', '010F', '0111', '0123', '0133', '015C',
+    # second round (16/11): the values this DME listed as supported, and the next lists
+    '0160', '0180', '01A0',
+    '0110', '011C', '011F', '0121', '0130', '0131', '0142', '0145', '0146', '0149', '014A'
 )
 
 $Cartella = [Environment]::GetFolderPath('Desktop')
@@ -46,6 +49,7 @@ function Esa([byte[]]$b) {
 function IndirizziEnet {
     $out = @()
     foreach ($ni in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+        if ($ni.OperationalStatus -ne [System.Net.NetworkInformation.OperationalStatus]::Up) { continue }   # a card with no cable keeps an old address
         foreach ($u in $ni.GetIPProperties().UnicastAddresses) {
             $a = $u.Address
             if ($a.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) { continue }
@@ -153,7 +157,17 @@ function Leggibile([string]$q, [byte[]]$d) {
             '0123' { return ('pressione rail {0:N0} kPa' -f ((U16 $d) * 10)) }
             '0133' { return ('pressione ambiente {0} kPa' -f $d[0]) }
             '015C' { return ('olio {0} C' -f ($d[0] - 40)) }
-            { $_ -in '0100', '0120', '0140' } {
+            '0110' { return ('portata aria {0:N2} g/s' -f ((U16 $d) / 100)) }
+            '011F' { return ('motore acceso da {0} s' -f (U16 $d)) }
+            '0121' { return ('km con spia motore accesa {0}' -f (U16 $d)) }
+            '0130' { return ('avviamenti dalla cancellazione errori {0}' -f $d[0]) }
+            '0131' { return ('km dalla cancellazione errori {0}' -f (U16 $d)) }
+            '0142' { return ('tensione centralina {0:N3} V' -f ((U16 $d) / 1000)) }
+            '0145' { return ('farfalla relativa {0:N0} %' -f ($d[0] * 100 / 255)) }
+            '0146' { return ('aria esterna {0} C' -f ($d[0] - 40)) }
+            '0149' { return ('pedale D {0:N0} %' -f ($d[0] * 100 / 255)) }
+            '014A' { return ('pedale E {0:N0} %' -f ($d[0] * 100 / 255)) }
+            { $_ -in '0100', '0120', '0140', '0160', '0180', '01A0' } {
                 $base = [Convert]::ToInt32($q.Substring(2, 2), 16)
                 $si = @()
                 for ($i = 0; $i -lt 32; $i++) { if ($d[[int][Math]::Floor($i / 8)] -band (0x80 -shr ($i % 8))) { $si += ('{0:X2}' -f ($base + $i + 1)) } }
@@ -168,10 +182,17 @@ Scrivi '=== dme-lettura (sola lettura) ==='
 if (-not $Locale) {
     $tutti = @(IndirizziEnet)
     if ($tutti.Count -eq 0) { Scrivi 'ERROR: no 169.254.x.x network card: is the ENET cable in, with the ignition on?'; return }
-    $Locale = $tutti[0]
+    # every 169.254.x.x card that is up is tried: the one where the gateway answers is the ENET cable
+    foreach ($ind in $tutti) {
+        Scrivi "computer: trying $ind"
+        $trovato = ''
+        try { $trovato = CercaGateway $ind } catch { Scrivi "  $ind cannot be used: $($_.Exception.Message)" }
+        if ($trovato) { $Locale = $ind; if (-not $Gateway) { $Gateway = $trovato }; break }
+    }
+    if (-not $Locale) { $Locale = $tutti[0] }
 }
 Scrivi "computer: $Locale"
-if (-not $Gateway) { $Gateway = CercaGateway $Locale }
+if (-not $Gateway) { try { $Gateway = CercaGateway $Locale } catch { Scrivi "  $Locale cannot be used: $($_.Exception.Message)" } }
 if (-not $Gateway) {
     Scrivi 'the gateway did not answer the search (ignition on? firewall of Windows?)'
     $Gateway = (Read-Host 'gateway address 169.254.x.x if you know it (Enter = stop)').Trim()

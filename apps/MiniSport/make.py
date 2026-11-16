@@ -39,8 +39,9 @@ TEMI = ("mid", "sport")
 ID_ICONA = 64200
 ID_PRIMO = 64201                               # 64201..: moving pictures of MiniSport_ALL_Images.zip (ids of the plugin only)
 # limits of the zip: what loaded in the car (ProvaZip B: 400 pictures, 93929 bytes; iDrive Plus icons up to 6596 bytes)
+# 16/11: ProvaZip F (100 pictures, 719956 bytes) loaded too, ProvaZip G (1.5 MB) did not: the byte limit is F's
 ZIP_MAX_IMMAGINI = 400
-ZIP_MAX_BYTE = 93929
+ZIP_MAX_BYTE = 719956
 IMMAGINE_MAX_BYTE = 6596
 FOCUS = 32760
 CONNETTORE = 218
@@ -50,6 +51,7 @@ GC = (222, 244)                                # big round dial (revs, timer)
 GR = 172
 SEG = dict(r0=147, r1=166, a0=225, a1=-45, n=20, gap=4.6)
 GIRI_MAX, GIRI_ROSSO = 7000, 6000
+GIRI_MAX_DIESEL, GIRI_ROSSO_DIESEL = 6000, 4500      # dial of the diesel engines (engine.info fuelType 6)
 SHIFT = dict(x0=452, x1=1122, y=104, n=10)       # 67 px per LED: whole pixels, so LEDs of the same colour are the same picture
 VALORI_X, VALORI_Y, VALORI_W = (440, 794), (150, 290), 330
 GM = dict(cx=222, cy=244, r=164)
@@ -157,9 +159,11 @@ def registra_cifre(nome, sz, **kw):
 NEUTRO = dict(chiaro=(232, 240, 244), ambra=(255, 200, 70), caldo=(255, 160, 35), rosso=(255, 52, 46))
 
 
-def colori_giri(tema, k):
+def colori_giri(tema, k, massimo=GIRI_MAX, rosso=GIRI_ROSSO):
     n = SEG["n"]
-    rosso_da = int(GIRI_ROSSO / GIRI_MAX * n)
+    # the first segment that is red: the one that lights up at the red zone or just after it (segment k lights up at
+    # (k + 1) * massimo / n rpm). Petrol: 17, lit at 6300; diesel: 14, lit at 4500
+    rosso_da = math.ceil(rosso * n / massimo) - 1
     if k >= rosso_da:
         return NEUTRO["rosso"]
     if k >= rosso_da - 4:
@@ -191,18 +195,20 @@ def colore_shift(tema, i):
     return g.VERDE if i < 4 else (NEUTRO["caldo"] if i < 7 else NEUTRO["rosso"])
 
 
-def sfondo_giri(tema):
+def sfondo_giri(tema, diesel=False):
     T = g.TEMI[tema]
     dst = g.vuoto()
-    g.testata(dst, "Giri e cambiata", tema, "cambiata a 6.200")
+    massimo, rosso = (GIRI_MAX_DIESEL, GIRI_ROSSO_DIESEL) if diesel else (GIRI_MAX, GIRI_ROSSO)
+    migliaia = massimo // 1000
+    g.testata(dst, "Giri e cambiata", tema, "cambiata a 4.000" if diesel else "cambiata a 6.200")
     cx, cy = GC
     g.lente_nativa(dst, cx, cy, GR, interno=0.78)
     for f in SEGMENTI:
         g.led_spento(dst, f)
     ri = GR * 0.78
-    for k in range(8):
-        a = math.radians(225 - k * 270 / 7)
-        colr = T["rosso"] if k >= 6 else g.BIANCO
+    for k in range(migliaia + 1):
+        a = math.radians(225 - k * 270 / migliaia)
+        colr = T["rosso"] if k * 1000 >= rosso else g.BIANCO
         g.linea(dst, (cx + (ri - 4) * math.cos(a), cy - (ri - 4) * math.sin(a)),
                 (cx + (ri - 16) * math.cos(a), cy - (ri - 16) * math.sin(a)), 3, colr, 0.85)
         g.testo(dst, (cx + (ri - 32) * math.cos(a), cy - (ri - 32) * math.sin(a)), str(k), 18, colr, 0.88, "Medium", "mm", disp=True)
@@ -386,7 +392,12 @@ def sfondo_menu(tema):
     return dst
 
 
-SFONDI = {"giri": sfondo_giri, "gmeter": sfondo_gmeter, "crono": sfondo_crono, "motore": sfondo_motore}
+def sfondo_giri_diesel(tema):
+    return sfondo_giri(tema, True)
+
+
+SFONDI = {"giri": sfondo_giri, "gmeter": sfondo_gmeter, "crono": sfondo_crono, "motore": sfondo_motore,
+          "giri_diesel": sfondo_giri_diesel}
 
 
 # ---- sets and components -----------------------------------------------------------------------------------------
@@ -505,6 +516,13 @@ def definisci():
     cifre_in_fila(113, "mot_sterzo", "c30", POS_STERZO, 398, 4)
     nuovo_set("frizione", (890, 388, 910, 408), ["on", "off"], acceso_spento(lambda tema, fr, box: _frizione()), per_tema=False)
     componente(113, "mot_frizione", "frizione")
+
+    # --- diesel dial of the revs page: the same segments with the red zone of the diesel engines. No component of
+    # their own (the plugin shows them in the pieces giri_seg*), and LAST: the ids of everything above do not change
+    for k, (f, b) in enumerate(zip(SEGMENTI, box_uguali(SEGMENTI, 2))):
+        nuovo_set(f"segd{k}", b, ["on", "off"],
+                  acceso_spento(lambda tema, fr, box, k=k, f=f: _led(f, colori_giri(tema, k, GIRI_MAX_DIESEL, GIRI_ROSSO_DIESEL))),
+                  per_tema=False)
 
 
 def colore_motore(schema, k):
@@ -873,6 +891,7 @@ def header(comp):
     p("")
     p("// geometry used by the plugin")
     p(f"const int kGiriCx = {GC[0]}, kGiriCy = {GC[1]}, kGiriMax = {GIRI_MAX}, kGiriRosso = {GIRI_ROSSO};")
+    p(f"const int kGiriMaxDiesel = {GIRI_MAX_DIESEL}, kGiriRossoDiesel = {GIRI_ROSSO_DIESEL};")
     p(f"const int kSegN = {SEG['n']};")
     p(f"const int kGmCx = {GM['cx']}, kGmCy = {GM['cy']}, kGmR = {GM['r']};")
     p(f"const int kGrafN = {GRAFICO['n']}, kGrafX0 = {GRAFICO['x0']}, kGrafPasso = {GRAFICO['passo']}, kGrafBase = {GRAFICO['base']}, "

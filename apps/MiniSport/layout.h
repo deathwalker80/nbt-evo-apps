@@ -677,6 +677,86 @@ const u32 ID_FRIZIONE[2][2] = {   // on, off
     {64354, 64355},
     {64354, 64355},
 };
+const u32 ID_SEGD0[2][2] = {   // on, off
+    {64258, 64259},
+    {64258, 64259},
+};
+const u32 ID_SEGD1[2][2] = {   // on, off
+    {64260, 64259},
+    {64260, 64259},
+};
+const u32 ID_SEGD2[2][2] = {   // on, off
+    {64356, 64259},
+    {64356, 64259},
+};
+const u32 ID_SEGD3[2][2] = {   // on, off
+    {64357, 64259},
+    {64357, 64259},
+};
+const u32 ID_SEGD4[2][2] = {   // on, off
+    {64358, 64259},
+    {64358, 64259},
+};
+const u32 ID_SEGD5[2][2] = {   // on, off
+    {64264, 64259},
+    {64264, 64259},
+};
+const u32 ID_SEGD6[2][2] = {   // on, off
+    {64265, 64259},
+    {64265, 64259},
+};
+const u32 ID_SEGD7[2][2] = {   // on, off
+    {64266, 64259},
+    {64266, 64259},
+};
+const u32 ID_SEGD8[2][2] = {   // on, off
+    {64267, 64259},
+    {64267, 64259},
+};
+const u32 ID_SEGD9[2][2] = {   // on, off
+    {64268, 64259},
+    {64268, 64259},
+};
+const u32 ID_SEGD10[2][2] = {   // on, off
+    {64359, 64259},
+    {64359, 64259},
+};
+const u32 ID_SEGD11[2][2] = {   // on, off
+    {64360, 64259},
+    {64360, 64259},
+};
+const u32 ID_SEGD12[2][2] = {   // on, off
+    {64361, 64259},
+    {64361, 64259},
+};
+const u32 ID_SEGD13[2][2] = {   // on, off
+    {64272, 64259},
+    {64272, 64259},
+};
+const u32 ID_SEGD14[2][2] = {   // on, off
+    {64362, 64259},
+    {64362, 64259},
+};
+const u32 ID_SEGD15[2][2] = {   // on, off
+    {64363, 64259},
+    {64363, 64259},
+};
+const u32 ID_SEGD16[2][2] = {   // on, off
+    {64364, 64259},
+    {64364, 64259},
+};
+const u32 ID_SEGD17[2][2] = {   // on, off
+    {64276, 64259},
+    {64276, 64259},
+};
+const u32 ID_SEGD18[2][2] = {   // on, off
+    {64277, 64259},
+    {64277, 64259},
+};
+const u32 ID_SEGD19[2][2] = {   // on, off
+    {64278, 64259},
+    {64278, 64259},
+};
 
 // the same ids grouped: IDG_<GROUP>[n][theme][frame] for the sets <group>0..<group>n-1
 const u32 IDG_SEG[20][2][2] = {
@@ -730,6 +810,28 @@ const u32 IDG_MSEG[10][2][3] = {
     {{64350, 64351, 64335}, {64350, 64351, 64335}},
     {{64352, 64353, 64335}, {64352, 64353, 64335}},
 };
+const u32 IDG_SEGD[20][2][2] = {
+    {{64258, 64259}, {64258, 64259}},
+    {{64260, 64259}, {64260, 64259}},
+    {{64356, 64259}, {64356, 64259}},
+    {{64357, 64259}, {64357, 64259}},
+    {{64358, 64259}, {64358, 64259}},
+    {{64264, 64259}, {64264, 64259}},
+    {{64265, 64259}, {64265, 64259}},
+    {{64266, 64259}, {64266, 64259}},
+    {{64267, 64259}, {64267, 64259}},
+    {{64268, 64259}, {64268, 64259}},
+    {{64359, 64259}, {64359, 64259}},
+    {{64360, 64259}, {64360, 64259}},
+    {{64361, 64259}, {64361, 64259}},
+    {{64272, 64259}, {64272, 64259}},
+    {{64362, 64259}, {64362, 64259}},
+    {{64363, 64259}, {64363, 64259}},
+    {{64364, 64259}, {64364, 64259}},
+    {{64276, 64259}, {64276, 64259}},
+    {{64277, 64259}, {64277, 64259}},
+    {{64278, 64259}, {64278, 64259}},
+};
 
 // advance of the separators (pixels)
 const int kAvanzoPunto56 = 13, kAvanzoVirgola76 = 18;
@@ -743,6 +845,7 @@ const int kCella_MARCIA = 31, kLarg_MARCIA = 33, kAlt_MARCIA = 52;
 
 // geometry used by the plugin
 const int kGiriCx = 222, kGiriCy = 244, kGiriMax = 7000, kGiriRosso = 6000;
+const int kGiriMaxDiesel = 6000, kGiriRossoDiesel = 4500;
 const int kSegN = 20;
 const int kGmCx = 222, kGmCy = 244, kGmR = 164;
 const int kGrafN = 30, kGrafX0 = 456, kGrafPasso = 22, kGrafBase = 410, kGrafLivelli = 8, kGrafAltezzaBox = 82;
@@ -756,6 +859,6 @@ const int kMotK[4] = {6553, 7281, 6553, 2184};   // lit segments = (value - min)
 const int kGiriCifreCy = 226;
 const int kBarraPassi = 8;   // bars of the revs page: frames 0..kBarraPassi
 const u32 kIdIcona = 64200;
-const u32 kIdPrimo = 64201, kIdUltimo = 64355;   // moving pictures of the zip
+const u32 kIdPrimo = 64201, kIdUltimo = 64364;   // moving pictures of the zip
 
 #endif
